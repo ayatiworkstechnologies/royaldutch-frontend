@@ -34,6 +34,7 @@ const groups = [
     title: "Communication",
     links: [
       ["/admin/mail", "Mail"],
+      ["/admin/email-templates", "Templates"],
       ["/admin/notifications", "Alerts"],
       ["/admin/settings", "Settings"],
     ],
