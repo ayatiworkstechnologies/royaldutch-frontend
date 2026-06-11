@@ -70,7 +70,7 @@ export default function AdminLoginPage() {
               required 
               value={email} 
               onChange={(event) => setEmail(event.target.value)} 
-              className="pl-10 pr-4 py-3.5 w-full text-xs font-semibold bg-white/5 text-white border border-white/10 rounded-xl focus:border-fuchsia-400 focus:bg-white/10 placeholder-fuchsia-300/30 focus:outline-none focus:ring-2 focus:ring-fuchsia-500/20 transition-all duration-200" 
+              className="pl-10 pr-4 py-3.5 w-full text-xs font-semibold bg-white/5 text-white border border-white/10 rounded-xl focus:border-fuchsia-400 focus:bg-white/10 placeholder-fuchsia-300/30 focus:outline-none focus:ring-2 focus:ring-fuchsia-500/20 transition-all duration-200 [&:-webkit-autofill]:bg-[#24061f] [&:-webkit-autofill]:[-webkit-text-fill-color:white] [&:-webkit-autofill]:[transition:background-color_5000s_ease-in-out_0s]" 
               placeholder="Email address" 
             />
           </div>
@@ -82,7 +82,7 @@ export default function AdminLoginPage() {
               required 
               value={password} 
               onChange={(event) => setPassword(event.target.value)} 
-              className="pl-10 pr-4 py-3.5 w-full text-xs font-semibold bg-white/5 text-white border border-white/10 rounded-xl focus:border-fuchsia-400 focus:bg-white/10 placeholder-fuchsia-300/30 focus:outline-none focus:ring-2 focus:ring-fuchsia-500/20 transition-all duration-200" 
+              className="pl-10 pr-4 py-3.5 w-full text-xs font-semibold bg-white/5 text-white border border-white/10 rounded-xl focus:border-fuchsia-400 focus:bg-white/10 placeholder-fuchsia-300/30 focus:outline-none focus:ring-2 focus:ring-fuchsia-500/20 transition-all duration-200 [&:-webkit-autofill]:bg-[#24061f] [&:-webkit-autofill]:[-webkit-text-fill-color:white] [&:-webkit-autofill]:[transition:background-color_5000s_ease-in-out_0s]" 
               placeholder="Password" 
             />
           </div>
