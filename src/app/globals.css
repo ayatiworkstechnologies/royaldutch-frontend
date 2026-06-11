@@ -178,3 +178,13 @@ a:focus-visible {
   box-shadow: 0 0 0 3px rgba(162, 28, 175, 0.15);
   outline: none;
 }
+
+/* Hide default browser scrollbar globally for a cleaner aesthetic */
+::-webkit-scrollbar {
+  display: none;
+}
+
+html, body {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
