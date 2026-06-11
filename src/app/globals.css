@@ -180,11 +180,11 @@ a:focus-visible {
 }
 
 /* Hide default browser scrollbar globally for a cleaner aesthetic */
-::-webkit-scrollbar {
+*::-webkit-scrollbar {
   display: none;
 }
 
-html, body {
+* {
   -ms-overflow-style: none;  /* IE and Edge */
   scrollbar-width: none;  /* Firefox */
 }
