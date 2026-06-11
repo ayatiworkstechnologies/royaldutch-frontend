@@ -33,8 +33,8 @@ export default function AdminLoginPage() {
       <div className="absolute right-10 top-10 h-72 w-72 rounded-full bg-fuchsia-500/10 blur-3xl pointer-events-none" />
       <div className="absolute left-10 bottom-10 h-72 w-72 rounded-full bg-amber-500/5 blur-3xl pointer-events-none" />
 
-      <form 
-        onSubmit={login} 
+      <form
+        onSubmit={login}
         className="w-full max-w-md bg-[#24061f]/85 backdrop-blur-xl rounded-2xl p-8 shadow-[0_24px_70px_rgba(0,0,0,0.55)] relative border border-white/10"
       >
         <div className="text-center pb-6 border-b border-white/10">
@@ -65,25 +65,25 @@ export default function AdminLoginPage() {
         <div className="mt-6 space-y-4">
           <div className="relative flex items-center">
             <Mail size={14} className="absolute left-4 text-fuchsia-300/40" />
-            <input 
-              type="email" 
-              required 
-              value={email} 
-              onChange={(event) => setEmail(event.target.value)} 
-              className="pl-10 pr-4 py-3.5 w-full text-xs font-semibold bg-white/5 text-white border border-white/10 rounded-xl focus:border-fuchsia-400 focus:bg-white/10 placeholder-fuchsia-300/30 focus:outline-none focus:ring-2 focus:ring-fuchsia-500/20 transition-all duration-200 [&:-webkit-autofill]:bg-[#24061f] [&:-webkit-autofill]:[-webkit-text-fill-color:white] [&:-webkit-autofill]:[transition:background-color_5000s_ease-in-out_0s]" 
-              placeholder="Email address" 
+            <input
+              type="email"
+              required
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              className="pl-10 pr-4 py-3.5 w-full text-xs font-semibold bg-white/5 text-black border border-white/10 rounded-xl focus:border-fuchsia-400 focus:bg-white/10 placeholder-fuchsia-300/30 focus:outline-none focus:ring-2 focus:ring-fuchsia-500/20 transition-all duration-200 [&:-webkit-autofill]:bg-[#24061f] [&:-webkit-autofill]:[-webkit-text-fill-color:white] [&:-webkit-autofill]:[transition:background-color_5000s_ease-in-out_0s]"
+              placeholder="Email address"
             />
           </div>
 
           <div className="relative flex items-center">
             <Lock size={14} className="absolute left-4 text-fuchsia-300/40" />
-            <input 
-              type="password" 
-              required 
-              value={password} 
-              onChange={(event) => setPassword(event.target.value)} 
-              className="pl-10 pr-4 py-3.5 w-full text-xs font-semibold bg-white/5 text-white border border-white/10 rounded-xl focus:border-fuchsia-400 focus:bg-white/10 placeholder-fuchsia-300/30 focus:outline-none focus:ring-2 focus:ring-fuchsia-500/20 transition-all duration-200 [&:-webkit-autofill]:bg-[#24061f] [&:-webkit-autofill]:[-webkit-text-fill-color:white] [&:-webkit-autofill]:[transition:background-color_5000s_ease-in-out_0s]" 
-              placeholder="Password" 
+            <input
+              type="password"
+              required
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              className="pl-10 pr-4 py-3.5 w-full text-xs font-semibold bg-white/5 text-black border border-white/10 rounded-xl focus:border-fuchsia-400 focus:bg-white/10 placeholder-fuchsia-300/30 focus:outline-none focus:ring-2 focus:ring-fuchsia-500/20 transition-all duration-200 [&:-webkit-autofill]:bg-[#24061f] [&:-webkit-autofill]:[-webkit-text-fill-color:white] [&:-webkit-autofill]:[transition:background-color_5000s_ease-in-out_0s]"
+              placeholder="Password"
             />
           </div>
 
