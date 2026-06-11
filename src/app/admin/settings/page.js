@@ -28,7 +28,7 @@ export default function AdminSettingsPage() {
             </div>
             <div>
               <dt className="text-slate-500">Default Admin</dt>
-              <dd className="mt-1 font-semibold">admin@clinicflow.local</dd>
+              <dd className="mt-1 font-semibold">admin@royaldutch.ae</dd>
             </div>
             <div>
               <dt className="text-slate-500">SMTP Mail</dt>

@@ -1,6 +1,6 @@
 # Royal Dutch Medical Centre Frontend
 
-Next.js JSX + Tailwind CSS frontend for the Royal Dutch Medical Centre booking and admin system.
+Next.js JSX + Tailwind CSS frontend for the Royal Dutch Medical Centre public booking site and admin operations system.
 
 ## Stack
 
@@ -19,10 +19,9 @@ Install dependencies:
 ```powershell
 cd D:\ayati\royalduch\frontend
 npm install
-Copy-Item .env.local.example .env.local
 ```
 
-`.env.local`:
+`.env`:
 
 ```env
 NEXT_PUBLIC_API_BASE_URL=https://royaldutch.onrender.com
@@ -47,6 +46,12 @@ cd D:\ayati\royalduch\backend
 uvicorn app.main:app --reload
 ```
 
+For local backend development, temporarily set:
+
+```env
+NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000
+```
+
 ## Public Pages
 
 - `/` home
@@ -56,6 +61,8 @@ uvicorn app.main:app --reload
 - `/book/[serviceSlug]` direct service booking
 - `/booking-success` booking confirmation
 - `/my-bookings` patient booking lookup
+
+The public header includes Home, Services, My Bookings, Admin and Book Appointment actions. The bottom AI Help button opens a quick flow list for booking and admin actions.
 
 ## Admin Pages
 
@@ -205,13 +212,20 @@ src/lib/api.js
 Default API base:
 
 ```text
-http://127.0.0.1:8000/api/v1
+https://royaldutch.onrender.com/api/v1
 ```
 
 Admin token is stored in browser local storage as:
 
 ```text
-clinicflow_admin_token
+royaldutch_admin_token
+```
+
+Default admin login:
+
+```text
+Email: admin@royaldutch.ae
+Password: Admin@12345
 ```
 
 ## Theme

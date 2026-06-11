@@ -1,7 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import AdminPageHeader from "@/components/AdminPageHeader";
 import AdminShell from "@/components/AdminShell";
+import AdminTable from "@/components/AdminTable";
+import FormSection, { FormField, inputClass, btnPrimary, btnSecondary, btnDanger } from "@/components/FormSection";
+import StatusBadge from "@/components/StatusBadge";
 import { api } from "@/lib/api";
 
 const defaultAvailability = [0, 1, 2, 3, 4, 5].map((day) => ({
@@ -47,26 +51,31 @@ export default function AdminStaffPage() {
   }, []);
 
   function setField(field, value) {
-    setForm((current) => ({ ...current, [field]: value }));
+    setForm((c) => ({ ...c, [field]: value }));
   }
 
   function toggleService(id) {
-    setForm((current) => ({
-      ...current,
-      service_ids: current.service_ids.includes(id)
-        ? current.service_ids.filter((item) => item !== id)
-        : [...current.service_ids, id],
+    setForm((c) => ({
+      ...c,
+      service_ids: c.service_ids.includes(id)
+        ? c.service_ids.filter((item) => item !== id)
+        : [...c.service_ids, id],
     }));
   }
 
-  async function save(event) {
-    event.preventDefault();
-    const payload = { ...form, service_ids: form.service_ids.map(Number) };
-    if (editingId) await api.updateStaff(editingId, payload);
-    else await api.createStaff(payload);
-    setForm({ ...empty, availability: defaultAvailability });
-    setEditingId(null);
-    load();
+  async function save(e) {
+    e.preventDefault();
+    setError("");
+    try {
+      const payload = { ...form, service_ids: form.service_ids.map(Number) };
+      if (editingId) await api.updateStaff(editingId, payload);
+      else await api.createStaff(payload);
+      setForm({ ...empty, availability: defaultAvailability });
+      setEditingId(null);
+      load();
+    } catch (err) {
+      setError(err.message);
+    }
   }
 
   function edit(member) {
@@ -81,53 +90,105 @@ export default function AdminStaffPage() {
       service_ids: member.service_ids || [],
       availability: member.availability?.length ? member.availability : defaultAvailability,
     });
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
+
+  const serviceMap = Object.fromEntries(services.map((s) => [s.id, s.name]));
+
+  const columns = [
+    { key: "name", label: "Name", render: (row) => <span className="font-semibold text-slate-900">{row.name}</span> },
+    { key: "email", label: "Email", render: (row) => row.email || <span className="text-slate-400">–</span> },
+    { key: "role", label: "Role", render: (row) => <span className="capitalize">{row.role}</span> },
+    { key: "specialization", label: "Specialization", render: (row) => row.specialization || "–" },
+    {
+      key: "services",
+      label: "Services",
+      render: (row) => {
+        const count = row.service_ids?.length || 0;
+        return (
+          <span className="inline-flex items-center rounded-full bg-fuchsia-50 px-2.5 py-1 text-xs font-semibold text-fuchsia-800">
+            {count} assigned
+          </span>
+        );
+      },
+    },
+    {
+      key: "status",
+      label: "Status",
+      render: (row) => <StatusBadge status={row.status} />,
+    },
+    {
+      key: "actions",
+      label: "Actions",
+      render: (row) => (
+        <div className="flex gap-2">
+          <button onClick={() => edit(row)} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-fuchsia-50 hover:text-fuchsia-700 hover:border-fuchsia-200">
+            Edit
+          </button>
+          <button onClick={() => api.deleteStaff(row.id).then(load)} className="rounded-lg border border-rose-200 px-3 py-1.5 text-xs font-semibold text-rose-600 transition hover:bg-rose-50">
+            Delete
+          </button>
+        </div>
+      ),
+    },
+  ];
 
   return (
     <AdminShell>
-      <h2 className="text-xl font-semibold">Staff / Doctor Management</h2>
-      {error ? <p className="mt-4 rounded-md bg-rose-50 p-3 text-sm text-rose-700">{error}</p> : null}
-      <form onSubmit={save} className="mt-5 soft-card rounded-lg p-5">
-        <div className="grid gap-3 md:grid-cols-3">
-          <input required placeholder="Name" value={form.name} onChange={(e) => setField("name", e.target.value)} className="rounded-md border border-slate-300 px-3 py-2" />
-          <input placeholder="Email" value={form.email} onChange={(e) => setField("email", e.target.value)} className="rounded-md border border-slate-300 px-3 py-2" />
-          <input placeholder="Phone" value={form.phone} onChange={(e) => setField("phone", e.target.value)} className="rounded-md border border-slate-300 px-3 py-2" />
-          <input required placeholder="Role" value={form.role} onChange={(e) => setField("role", e.target.value)} className="rounded-md border border-slate-300 px-3 py-2" />
-          <input placeholder="Specialization" value={form.specialization} onChange={(e) => setField("specialization", e.target.value)} className="rounded-md border border-slate-300 px-3 py-2" />
-          <select value={form.status} onChange={(e) => setField("status", e.target.value)} className="rounded-md border border-slate-300 px-3 py-2">
+      <AdminPageHeader title="Staff / Doctor Management" description="Add doctors, assign services, set availability schedules." />
+      {error && <p className="mt-4 rounded-lg bg-rose-50 border border-rose-100 p-3.5 text-sm text-rose-700">{error}</p>}
+
+      <FormSection
+        title={editingId ? `Edit Staff #${editingId}` : "Add New Staff Member"}
+        onSubmit={save}
+        actions={
+          <>
+            <button className={btnPrimary}>{editingId ? "Update" : "Add"} Staff</button>
+            {editingId && (
+              <button type="button" onClick={() => { setEditingId(null); setForm({ ...empty, availability: defaultAvailability }); }} className={btnSecondary}>
+                Cancel
+              </button>
+            )}
+          </>
+        }
+      >
+        <FormField label="Name" required>
+          <input required placeholder="Dr. John Smith" value={form.name} onChange={(e) => setField("name", e.target.value)} className={inputClass} />
+        </FormField>
+        <FormField label="Email">
+          <input type="email" placeholder="doctor@royaldutch.ae" value={form.email} onChange={(e) => setField("email", e.target.value)} className={inputClass} />
+        </FormField>
+        <FormField label="Phone">
+          <input placeholder="+971 5xx xxx xxxx" value={form.phone} onChange={(e) => setField("phone", e.target.value)} className={inputClass} />
+        </FormField>
+        <FormField label="Role" required>
+          <input required placeholder="Dermatologist, Dentist, etc." value={form.role} onChange={(e) => setField("role", e.target.value)} className={inputClass} />
+        </FormField>
+        <FormField label="Specialization">
+          <input placeholder="Area of expertise" value={form.specialization} onChange={(e) => setField("specialization", e.target.value)} className={inputClass} />
+        </FormField>
+        <FormField label="Status">
+          <select value={form.status} onChange={(e) => setField("status", e.target.value)} className={inputClass}>
             <option value="active">Active</option>
             <option value="inactive">Inactive</option>
           </select>
-        </div>
-        <div className="mt-4">
-          <p className="text-sm font-semibold">Assigned Services</p>
-          <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+        </FormField>
+
+        {/* Services assignment — full width */}
+        <div className="md:col-span-2 lg:col-span-3">
+          <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-500">Assigned Services</label>
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
             {services.map((service) => (
-              <label key={service.id} className="flex items-center gap-2 rounded-md border border-slate-200 px-3 py-2 text-sm">
-                <input type="checkbox" checked={form.service_ids.includes(service.id)} onChange={() => toggleService(service.id)} />
+              <label key={service.id} className={`flex cursor-pointer items-center gap-2.5 rounded-lg border px-3.5 py-2.5 text-sm transition ${form.service_ids.includes(service.id) ? "border-fuchsia-300 bg-fuchsia-50/60 text-fuchsia-900" : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"}`}>
+                <input type="checkbox" checked={form.service_ids.includes(service.id)} onChange={() => toggleService(service.id)} className="rounded border-slate-300 text-fuchsia-700 focus:ring-fuchsia-200" />
                 {service.name}
               </label>
             ))}
           </div>
         </div>
-        <button className="mt-4 rounded-md bg-fuchsia-800 px-4 py-2 text-sm font-semibold text-white">
-          {editingId ? "Update" : "Add"} Staff
-        </button>
-      </form>
-      <div className="mt-5 grid gap-3">
-        {staff.map((member) => (
-          <div key={member.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white p-4">
-            <div>
-              <p className="font-semibold">{member.name} - {member.role}</p>
-              <p className="text-sm text-slate-500">{member.specialization} - {member.service_ids?.length || 0} services</p>
-            </div>
-            <div className="flex gap-2">
-              <button onClick={() => edit(member)} className="rounded-md border border-slate-300 px-3 py-2 text-sm">Edit</button>
-              <button onClick={() => api.deleteStaff(member.id).then(load)} className="rounded-md border border-rose-200 px-3 py-2 text-sm text-rose-700">Delete</button>
-            </div>
-          </div>
-        ))}
-      </div>
+      </FormSection>
+
+      <AdminTable columns={columns} data={staff} perPage={10} emptyTitle="No staff members found" emptyMessage="Add doctors and staff members to get started." />
     </AdminShell>
   );
 }

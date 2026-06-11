@@ -3,7 +3,9 @@
 import { useEffect, useState } from "react";
 import AdminPageHeader from "@/components/AdminPageHeader";
 import AdminShell from "@/components/AdminShell";
-import EmptyState from "@/components/EmptyState";
+import AdminTable from "@/components/AdminTable";
+import FormSection, { FormField, inputClass, btnPrimary } from "@/components/FormSection";
+import StatusBadge from "@/components/StatusBadge";
 import { api } from "@/lib/api";
 
 const empty = {
@@ -29,11 +31,11 @@ export default function AdminNotificationsPage() {
   }, []);
 
   function setField(field, value) {
-    setForm((current) => ({ ...current, [field]: value }));
+    setForm((c) => ({ ...c, [field]: value }));
   }
 
-  async function save(event) {
-    event.preventDefault();
+  async function save(e) {
+    e.preventDefault();
     setError("");
     try {
       await api.createNotification({
@@ -52,43 +54,80 @@ export default function AdminNotificationsPage() {
     load();
   }
 
+  const columns = [
+    {
+      key: "subject",
+      label: "Subject",
+      render: (row) => <span className="font-semibold text-slate-900">{row.subject || row.channel}</span>,
+    },
+    {
+      key: "channel",
+      label: "Channel",
+      render: (row) => (
+        <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold capitalize text-slate-700">
+          {row.channel}
+        </span>
+      ),
+    },
+    { key: "recipient", label: "Recipient" },
+    { key: "booking_id", label: "Booking", render: (row) => row.booking_id || "–" },
+    {
+      key: "message",
+      label: "Message",
+      render: (row) => <span className="max-w-xs truncate block text-slate-600">{row.message}</span>,
+    },
+    {
+      key: "status",
+      label: "Status",
+      render: (row) => (
+        <select
+          value={row.status}
+          onChange={(e) => mark(row.id, e.target.value)}
+          className="rounded-lg border border-slate-200 px-2 py-1.5 text-xs font-semibold"
+        >
+          <option value="queued">Queued</option>
+          <option value="sent">Sent</option>
+          <option value="failed">Failed</option>
+        </select>
+      ),
+    },
+  ];
+
   return (
     <AdminShell>
       <AdminPageHeader title="Notifications" description="Manage dashboard, email, WhatsApp and SMS notification queue records." />
-      {error ? <p className="mt-4 rounded-md bg-rose-50 p-3 text-sm text-rose-700">{error}</p> : null}
-      <form onSubmit={save} className="mt-5 grid gap-3 soft-card rounded-lg p-5 md:grid-cols-3">
-        <input placeholder="Booking ID" value={form.booking_id} onChange={(e) => setField("booking_id", e.target.value)} className="rounded-md border border-slate-300 px-3 py-2" />
-        <select value={form.channel} onChange={(e) => setField("channel", e.target.value)} className="rounded-md border border-slate-300 px-3 py-2">
-          <option value="dashboard">Dashboard</option>
-          <option value="email">Email</option>
-          <option value="whatsapp">WhatsApp</option>
-          <option value="sms">SMS</option>
-        </select>
-        <input required placeholder="Recipient" value={form.recipient} onChange={(e) => setField("recipient", e.target.value)} className="rounded-md border border-slate-300 px-3 py-2" />
-        <input placeholder="Subject" value={form.subject} onChange={(e) => setField("subject", e.target.value)} className="rounded-md border border-slate-300 px-3 py-2 md:col-span-1" />
-        <textarea required placeholder="Message" value={form.message} onChange={(e) => setField("message", e.target.value)} className="min-h-20 rounded-md border border-slate-300 px-3 py-2 md:col-span-2" />
-        <button className="rounded-md bg-fuchsia-800 px-4 py-2 text-sm font-semibold text-white">Create Notification</button>
-      </form>
+      {error && <p className="mt-4 rounded-lg bg-rose-50 border border-rose-100 p-3.5 text-sm text-rose-700">{error}</p>}
 
-      <div className="mt-5 space-y-3">
-        {notifications.length === 0 ? <EmptyState title="No notifications yet" message="Booking alerts and manual notifications will appear here." /> : null}
-        {notifications.map((item) => (
-          <article key={item.id} className="rounded-lg border border-slate-200 bg-white p-4">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <p className="font-semibold">{item.subject || item.channel}</p>
-                <p className="mt-1 text-sm text-slate-500">{item.recipient} - booking {item.booking_id || "-"}</p>
-                <p className="mt-2 text-sm text-slate-700">{item.message}</p>
-              </div>
-              <select value={item.status} onChange={(event) => mark(item.id, event.target.value)} className="rounded-md border border-slate-300 px-3 py-2 text-sm">
-                <option value="queued">Queued</option>
-                <option value="sent">Sent</option>
-                <option value="failed">Failed</option>
-              </select>
-            </div>
-          </article>
-        ))}
-      </div>
+      <FormSection
+        title="Create Notification"
+        onSubmit={save}
+        actions={<button className={btnPrimary}>Create Notification</button>}
+      >
+        <FormField label="Booking ID">
+          <input placeholder="Link a booking ID" value={form.booking_id} onChange={(e) => setField("booking_id", e.target.value)} className={inputClass} />
+        </FormField>
+        <FormField label="Channel">
+          <select value={form.channel} onChange={(e) => setField("channel", e.target.value)} className={inputClass}>
+            <option value="dashboard">Dashboard</option>
+            <option value="email">Email</option>
+            <option value="whatsapp">WhatsApp</option>
+            <option value="sms">SMS</option>
+          </select>
+        </FormField>
+        <FormField label="Recipient" required>
+          <input required placeholder="admin, patient, etc." value={form.recipient} onChange={(e) => setField("recipient", e.target.value)} className={inputClass} />
+        </FormField>
+        <FormField label="Subject">
+          <input placeholder="Notification subject" value={form.subject} onChange={(e) => setField("subject", e.target.value)} className={inputClass} />
+        </FormField>
+        <div className="md:col-span-2 lg:col-span-3">
+          <FormField label="Message" required>
+            <textarea required placeholder="Notification message" value={form.message} onChange={(e) => setField("message", e.target.value)} className={`${inputClass} min-h-20`} />
+          </FormField>
+        </div>
+      </FormSection>
+
+      <AdminTable columns={columns} data={notifications} perPage={10} emptyTitle="No notifications yet" emptyMessage="Booking alerts and manual notifications will appear here." />
     </AdminShell>
   );
 }

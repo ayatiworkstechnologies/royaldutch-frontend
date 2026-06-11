@@ -3,8 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import AdminPageHeader from "@/components/AdminPageHeader";
 import AdminShell from "@/components/AdminShell";
-import EmptyState from "@/components/EmptyState";
+import AdminTable from "@/components/AdminTable";
 import StatusBadge from "@/components/StatusBadge";
+import { inputClass } from "@/components/FormSection";
 import { api, money } from "@/lib/api";
 
 const statuses = ["pending", "confirmed", "completed", "cancelled", "rescheduled", "no_show"];
@@ -43,15 +44,10 @@ export default function AdminBookingsPage() {
   const visibleBookings = useMemo(() => {
     const needle = query.trim().toLowerCase();
     if (!needle) return bookings;
-    return bookings.filter((booking) => {
-      return [
-        booking.booking_code,
-        booking.patient?.full_name,
-        booking.patient?.phone,
-        booking.service_name,
-        booking.staff_name,
-      ].some((value) => String(value || "").toLowerCase().includes(needle));
-    });
+    return bookings.filter((booking) =>
+      [booking.booking_code, booking.patient?.full_name, booking.patient?.phone, booking.service_name, booking.staff_name]
+        .some((v) => String(v || "").toLowerCase().includes(needle))
+    );
   }, [bookings, query]);
 
   async function changeStatus(id, nextStatus) {
@@ -68,26 +64,90 @@ export default function AdminBookingsPage() {
     }
   }
 
-  function statusCount(statusValue) {
-    if (!statusValue) return bookings.length;
-    return bookings.filter((booking) => booking.status === statusValue).length;
+  function statusCount(val) {
+    if (!val) return bookings.length;
+    return bookings.filter((b) => b.status === val).length;
   }
+
+  const columns = [
+    {
+      key: "patient",
+      label: "Patient",
+      render: (row) => (
+        <div>
+          <span className="font-semibold text-slate-900">{row.patient?.full_name}</span>
+          <br />
+          <span className="text-xs text-slate-500">{row.patient?.phone}</span>
+          <br />
+          <code className="text-[10px] text-slate-400">{row.booking_code}</code>
+        </div>
+      ),
+    },
+    {
+      key: "appointment",
+      label: "Appointment",
+      render: (row) => (
+        <div>
+          <span className="font-semibold">{row.service_name}</span>
+          <br />
+          <span className="text-xs text-slate-500">{row.booking_date} at {row.booking_time}</span>
+        </div>
+      ),
+    },
+    { key: "staff_name", label: "Staff" },
+    { key: "price", label: "Price", render: (row) => <span className="font-semibold">{money(row.price, row.currency)}</span> },
+    { key: "status", label: "Status", render: (row) => <StatusBadge status={row.status} /> },
+    {
+      key: "actions",
+      label: "Actions",
+      render: (row) => (
+        <div className="flex flex-wrap gap-1.5">
+          {row.status === "pending" && (
+            <button onClick={() => changeStatus(row.id, "confirmed")} className="rounded-lg bg-[#5b0f4d] px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-[#4a0c3f]">Confirm</button>
+          )}
+          {row.status === "confirmed" && (
+            <button onClick={() => changeStatus(row.id, "completed")} className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-emerald-700">Complete</button>
+          )}
+          {row.status !== "cancelled" && row.status !== "completed" && (
+            <button onClick={() => changeStatus(row.id, "cancelled")} className="rounded-lg border border-rose-200 px-3 py-1.5 text-xs font-semibold text-rose-600 transition hover:bg-rose-50">Cancel</button>
+          )}
+          <select value={row.status} onChange={(e) => changeStatus(row.id, e.target.value)} className="rounded-lg border border-slate-200 px-2 py-1.5 text-xs">
+            {statuses.map((s) => <option key={s} value={s}>{s.replace("_", " ")}</option>)}
+          </select>
+        </div>
+      ),
+    },
+    {
+      key: "mail",
+      label: "Mail",
+      render: (row) => (
+        <div className="flex flex-wrap gap-1.5">
+          <button onClick={() => queueMail(row.id, row.status === "confirmed" ? "reminder" : "confirmed")} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-fuchsia-50 hover:text-fuchsia-700">
+            Queue
+          </button>
+          <a className="rounded-lg border border-fuchsia-200 px-3 py-1.5 text-xs font-semibold text-fuchsia-800 transition hover:bg-fuchsia-50" href={`https://wa.me/${String(row.patient?.phone || "").replace(/[^0-9]/g, "")}`} target="_blank" rel="noreferrer">
+            WhatsApp
+          </a>
+        </div>
+      ),
+    },
+  ];
 
   return (
     <AdminShell>
       <AdminPageHeader title="Appointments" description="Start with pending requests, confirm slots, then complete visits after service." />
-      {error ? <p className="mt-4 rounded-md bg-rose-50 p-3 text-sm text-rose-700">{error}</p> : null}
+      {error && <p className="mt-4 rounded-lg bg-rose-50 border border-rose-100 p-3.5 text-sm text-rose-700">{error}</p>}
 
-      <div className="mt-5 flex gap-2 overflow-x-auto rounded-lg border border-slate-200 bg-white p-2">
+      {/* Status tabs */}
+      <div className="mt-5 flex gap-2 overflow-x-auto rounded-xl border border-slate-200 bg-white p-2 shadow-sm shadow-slate-100">
         {statusTabs.map(([value, label]) => (
           <button
             key={label}
-            onClick={() => {
-              setStatus(value);
-              load({ status: value, bookingDate });
-            }}
-            className={`shrink-0 rounded-md px-4 py-2 text-sm font-semibold ${
-              status === value ? "bg-[#5b0f4d] text-white" : "bg-slate-50 text-slate-700 hover:bg-fuchsia-50"
+            onClick={() => { setStatus(value); load({ status: value, bookingDate }); }}
+            className={`shrink-0 rounded-lg px-4 py-2.5 text-sm font-semibold transition-all duration-200 ${
+              status === value
+                ? "bg-[#5b0f4d] text-white shadow-sm shadow-fuchsia-900/20"
+                : "bg-slate-50 text-slate-700 hover:bg-fuchsia-50 hover:text-fuchsia-800"
             }`}
           >
             {label} <span className="ml-1 opacity-70">{statusCount(value)}</span>
@@ -95,74 +155,19 @@ export default function AdminBookingsPage() {
         ))}
       </div>
 
-      <div className="mt-4 grid gap-3 rounded-lg border border-slate-200 bg-white p-4 md:grid-cols-4">
-        <input placeholder="Search name, phone, service" value={query} onChange={(event) => setQuery(event.target.value)} className="rounded-md border border-slate-300 px-3 py-2 md:col-span-2" />
-        <input type="date" value={bookingDate} onChange={(event) => setBookingDate(event.target.value)} className="rounded-md border border-slate-300 px-3 py-2" />
-        <button onClick={() => load({ status, bookingDate })} className="rounded-md bg-fuchsia-800 px-4 py-2 text-sm font-semibold text-white">
+      {/* Filters */}
+      <div className="mt-4 grid gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-100 md:grid-cols-4">
+        <input placeholder="Search name, phone, service..." value={query} onChange={(e) => setQuery(e.target.value)} className={`${inputClass} md:col-span-2`} />
+        <input type="date" value={bookingDate} onChange={(e) => setBookingDate(e.target.value)} className={inputClass} />
+        <button
+          onClick={() => load({ status, bookingDate })}
+          className="rounded-lg bg-[#5b0f4d] px-4 py-2.5 text-sm font-semibold text-white shadow-sm shadow-fuchsia-900/10 transition hover:bg-[#4a0c3f]"
+        >
           {loading ? "Loading..." : "Apply Filters"}
         </button>
       </div>
 
-      <div className="mt-5 overflow-x-auto rounded-lg border border-slate-200 bg-white">
-        <table className="admin-table min-w-full text-left text-sm">
-          <thead className="bg-slate-50 text-slate-600">
-            <tr>
-              {["Patient", "Appointment", "Staff", "Price", "Status", "Action", "Mail"].map((head) => (
-                <th key={head} className="px-4 py-3 font-semibold">{head}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-200">
-            {visibleBookings.map((booking) => (
-              <tr key={booking.id}>
-                <td className="px-4 py-3">
-                  <span className="font-semibold">{booking.patient?.full_name}</span>
-                  <br />
-                  <span className="text-slate-500">{booking.patient?.phone}</span>
-                  <br />
-                  <span className="text-xs text-slate-400">{booking.booking_code}</span>
-                </td>
-                <td className="px-4 py-3">
-                  <span className="font-semibold">{booking.service_name}</span>
-                  <br />
-                  <span className="text-slate-500">{booking.booking_date} at {booking.booking_time}</span>
-                </td>
-                <td className="px-4 py-3">{booking.staff_name}</td>
-                <td className="px-4 py-3">{money(booking.price, booking.currency)}</td>
-                <td className="px-4 py-3"><StatusBadge status={booking.status} /></td>
-                <td className="px-4 py-3">
-                  <div className="flex min-w-56 flex-wrap gap-2">
-                    {booking.status === "pending" ? (
-                      <button onClick={() => changeStatus(booking.id, "confirmed")} className="rounded-md bg-[#5b0f4d] px-3 py-2 text-xs font-semibold text-white">Confirm</button>
-                    ) : null}
-                    {booking.status === "confirmed" ? (
-                      <button onClick={() => changeStatus(booking.id, "completed")} className="rounded-md bg-[#5b0f4d] px-3 py-2 text-xs font-semibold text-white">Complete</button>
-                    ) : null}
-                    {booking.status !== "cancelled" && booking.status !== "completed" ? (
-                      <button onClick={() => changeStatus(booking.id, "cancelled")} className="rounded-md border border-rose-200 px-3 py-2 text-xs font-semibold text-rose-700">Cancel</button>
-                    ) : null}
-                    <select value={booking.status} onChange={(event) => changeStatus(booking.id, event.target.value)} className="rounded-md border border-slate-300 px-2 py-2 text-xs">
-                      {statuses.map((item) => <option key={item} value={item}>{item.replace("_", " ")}</option>)}
-                    </select>
-                  </div>
-                </td>
-                <td className="px-4 py-3">
-                  <div className="flex flex-wrap gap-2">
-                    <button onClick={() => queueMail(booking.id, booking.status === "confirmed" ? "reminder" : "confirmed")} className="rounded-md border border-slate-300 px-3 py-2 text-xs font-semibold">
-                      Queue Email
-                    </button>
-                    <a className="rounded-md border border-slate-300 px-3 py-2 text-xs font-semibold" href={`mailto:${booking.patient?.email || ""}`}>Open Email</a>
-                    <a className="rounded-md border border-fuchsia-200 px-3 py-2 text-xs font-semibold text-fuchsia-800" href={`https://wa.me/${String(booking.patient?.phone || "").replace(/[^0-9]/g, "")}`} target="_blank" rel="noreferrer">
-                      WhatsApp
-                    </a>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      {visibleBookings.length === 0 ? <div className="mt-5"><EmptyState title="No bookings found" message="Try clearing filters or wait for new appointment requests." /></div> : null}
+      <AdminTable columns={columns} data={visibleBookings} perPage={10} emptyTitle="No bookings found" emptyMessage="Try clearing filters or wait for new appointment requests." />
     </AdminShell>
   );
 }

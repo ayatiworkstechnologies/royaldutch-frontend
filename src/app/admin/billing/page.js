@@ -3,7 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import AdminPageHeader from "@/components/AdminPageHeader";
 import AdminShell from "@/components/AdminShell";
-import EmptyState from "@/components/EmptyState";
+import AdminTable from "@/components/AdminTable";
+import StatusBadge from "@/components/StatusBadge";
+import FormSection, { FormField, inputClass, btnPrimary, btnSecondary } from "@/components/FormSection";
 import { api, money } from "@/lib/api";
 
 export default function AdminBillingPage() {
@@ -16,40 +18,51 @@ export default function AdminBillingPage() {
   const [method, setMethod] = useState("pay_at_clinic");
   const [transactionId, setTransactionId] = useState("");
   const [error, setError] = useState("");
+  const [busy, setBusy] = useState("");
 
   async function load() {
-    const [invoiceData, bookingData, paymentData] = await Promise.all([api.invoices(), api.bookings(), api.payments()]);
-    setInvoices(invoiceData);
-    setBookings(bookingData);
-    setPayments(paymentData);
+    try {
+      const [invoiceData, bookingData, paymentData] = await Promise.all([
+        api.invoices(),
+        api.bookings(),
+        api.payments(),
+      ]);
+      setInvoices(invoiceData);
+      setBookings(bookingData);
+      setPayments(paymentData);
+    } catch (err) {
+      setError(err.message);
+    }
   }
 
   useEffect(() => {
-    Promise.all([api.invoices(), api.bookings(), api.payments()])
-      .then(([invoiceData, bookingData, paymentData]) => {
-        setInvoices(invoiceData);
-        setBookings(bookingData);
-        setPayments(paymentData);
-      })
-      .catch((err) => setError(err.message));
+    load();
   }, []);
 
   const selectedInvoice = useMemo(() => invoices.find((invoice) => invoice.id === Number(invoiceId)), [invoices, invoiceId]);
   const selectedBooking = useMemo(() => bookings.find((booking) => booking.id === Number(bookingId)), [bookings, bookingId]);
 
-  async function generateInvoice() {
+  async function generateInvoice(e) {
+    e.preventDefault();
     setError("");
     if (!bookingId) {
-      setError("Select a booking first.");
+      setError("Please select a booking first.");
       return;
     }
+    setBusy("invoice");
     try {
       const invoice = await api.createInvoiceFromBooking(bookingId, {});
       setInvoiceId(String(invoice.id));
       setAmount(invoice.balance_due);
+      setBookingId("");
       await load();
+      // Smooth scroll to the payment form
+      const el = document.getElementById("payment-section");
+      if (el) el.scrollIntoView({ behavior: "smooth" });
     } catch (err) {
       setError(err.message);
+    } finally {
+      setBusy("");
     }
   }
 
@@ -57,9 +70,10 @@ export default function AdminBillingPage() {
     event.preventDefault();
     setError("");
     if (!selectedInvoice) {
-      setError("Select an invoice first.");
+      setError("Please select an invoice first.");
       return;
     }
+    setBusy("payment");
     try {
       await api.createPayment({
         booking_id: selectedInvoice.booking_id,
@@ -70,113 +84,272 @@ export default function AdminBillingPage() {
         transaction_id: transactionId || null,
       });
       setAmount("");
+      setInvoiceId("");
       setTransactionId("");
       await load();
     } catch (err) {
       setError(err.message);
+    } finally {
+      setBusy("");
     }
   }
 
+  function selectInvoiceForPayment(invoice) {
+    setInvoiceId(String(invoice.id));
+    setAmount(invoice.balance_due);
+    // Smooth scroll to the payment section
+    const el = document.getElementById("payment-section");
+    if (el) el.scrollIntoView({ behavior: "smooth" });
+  }
+
+  const invoiceColumns = [
+    {
+      key: "invoice_number",
+      label: "Invoice Ref",
+      render: (row) => (
+        <div>
+          <span className="font-semibold text-slate-900">{row.invoice_number}</span>
+          <br />
+          <span className="text-xs text-slate-500">Booking #{row.booking_id}</span>
+        </div>
+      ),
+    },
+    {
+      key: "amount",
+      label: "Financials",
+      render: (row) => (
+        <div>
+          <span className="font-medium text-slate-900">Total: {money(row.total_amount, row.currency)}</span>
+          <br />
+          <span className="text-xs text-slate-500">Due: {money(row.balance_due, row.currency)}</span>
+        </div>
+      ),
+    },
+    {
+      key: "status",
+      label: "Status",
+      render: (row) => <StatusBadge status={row.status} />,
+    },
+    {
+      key: "actions",
+      label: "Actions",
+      render: (row) => (
+        row.status !== "paid" ? (
+          <button
+            onClick={() => selectInvoiceForPayment(row)}
+            className="rounded-lg border border-[#5b0f4d] bg-white px-3 py-1.5 text-xs font-semibold text-[#5b0f4d] transition hover:bg-fuchsia-50"
+          >
+            Collect Payment
+          </button>
+        ) : (
+          <span className="text-xs font-medium text-emerald-600">Settled</span>
+        )
+      ),
+    },
+  ];
+
+  const paymentColumns = [
+    {
+      key: "id",
+      label: "Payment Info",
+      render: (row) => (
+        <div>
+          <span className="font-semibold text-slate-900">{money(row.amount, "AED")}</span>
+          <br />
+          <span className="text-xs text-slate-500">Invoice #{row.invoice_id}</span>
+        </div>
+      ),
+    },
+    {
+      key: "payment_method",
+      label: "Details",
+      render: (row) => (
+        <div>
+          <span className="capitalize text-xs font-medium bg-slate-100 px-2 py-0.5 rounded text-slate-700">
+            {row.payment_method.replaceAll("_", " ")}
+          </span>
+          {row.transaction_id && (
+            <div className="mt-1">
+              <code className="text-[10px] font-mono text-slate-500 bg-slate-50 border border-slate-100 px-1 py-0.5 rounded">
+                TX: {row.transaction_id}
+              </code>
+            </div>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: "payment_status",
+      label: "Status",
+      render: (row) => <StatusBadge status={row.payment_status} />,
+    },
+    {
+      key: "created_at",
+      label: "Recorded On",
+      render: (row) => (
+        <span className="text-xs text-slate-500">
+          {row.created_at ? new Date(row.created_at).toLocaleString() : "–"}
+        </span>
+      ),
+    },
+  ];
+
   return (
     <AdminShell>
-      <AdminPageHeader title="Finance Desk" description="Simple flow: choose booking, generate invoice, record payment. Balance updates automatically." />
-      {error ? <p className="mt-4 rounded-md bg-rose-50 p-3 text-sm text-rose-700">{error}</p> : null}
+      <AdminPageHeader
+        title="Finance Desk"
+        description="Choose a booking to generate an invoice, and record payments against outstanding balances."
+      />
+      {error && <p className="mt-4 rounded-lg bg-rose-50 border border-rose-100 p-3.5 text-sm text-rose-700">{error}</p>}
 
-      <section className="mt-5 grid gap-4 xl:grid-cols-[1fr_420px]">
-        <div className="soft-card rounded-lg p-5">
-          <h2 className="text-lg font-semibold">Step 1: Create Invoice From Booking</h2>
-          <p className="mt-1 text-sm text-slate-500">Use this after a booking is confirmed or completed.</p>
-          <div className="mt-4 grid gap-3 md:grid-cols-[1fr_180px]">
-            <select value={bookingId} onChange={(event) => setBookingId(event.target.value)} className="rounded-md border border-slate-300 px-3 py-3">
-              <option value="">Select booking</option>
-              {bookings.map((booking) => (
-                <option key={booking.id} value={booking.id}>
-                  {booking.booking_code} - {booking.patient?.full_name} - {booking.service_name}
-                </option>
-              ))}
-            </select>
-            <button onClick={generateInvoice} className="rounded-md bg-[#5b0f4d] px-4 py-3 text-sm font-semibold text-white">
-              Generate Invoice
+      <div className="mt-5 grid gap-5 lg:grid-cols-2">
+        {/* Step 1 FormSection */}
+        <FormSection
+          title="Step 1: Generate Invoice from Booking"
+          onSubmit={generateInvoice}
+          actions={
+            <button disabled={busy === "invoice" || !bookingId} className={btnPrimary}>
+              {busy === "invoice" ? "Generating..." : "Generate Invoice"}
             </button>
+          }
+        >
+          <div className="md:col-span-2 lg:col-span-3">
+            <FormField label="Select Booking" required>
+              <select
+                value={bookingId}
+                onChange={(event) => setBookingId(event.target.value)}
+                className={inputClass}
+              >
+                <option value="">Choose booking...</option>
+                {bookings
+                  .filter((b) => b.status !== "cancelled")
+                  .map((booking) => (
+                    <option key={booking.id} value={booking.id}>
+                      {booking.booking_code} - {booking.patient?.full_name} ({booking.service_name})
+                    </option>
+                  ))}
+              </select>
+            </FormField>
           </div>
-          {selectedBooking ? (
-            <div className="mt-4 rounded-lg border border-fuchsia-100 bg-fuchsia-50/60 p-4 text-sm">
-              <p className="font-semibold">{selectedBooking.service_name}</p>
-              <p className="mt-1 text-slate-600">{selectedBooking.patient?.full_name} - {selectedBooking.booking_date} at {selectedBooking.booking_time}</p>
-              <p className="mt-1 font-semibold">{money(selectedBooking.price, selectedBooking.currency)}</p>
-            </div>
-          ) : null}
-        </div>
 
-        <form onSubmit={recordPayment} className="soft-card rounded-lg p-5">
-          <h2 className="text-lg font-semibold">Step 2: Record Payment</h2>
-          <p className="mt-1 text-sm text-slate-500">Select invoice and enter received amount.</p>
-          <div className="mt-4 space-y-3">
-            <select value={invoiceId} onChange={(event) => {
-              setInvoiceId(event.target.value);
-              const invoice = invoices.find((item) => item.id === Number(event.target.value));
-              setAmount(invoice?.balance_due ?? "");
-            }} className="w-full rounded-md border border-slate-300 px-3 py-3">
-              <option value="">Select invoice</option>
-              {invoices.map((invoice) => (
-                <option key={invoice.id} value={invoice.id}>
-                  {invoice.invoice_number} - balance {money(invoice.balance_due, invoice.currency)}
-                </option>
-              ))}
-            </select>
-            <input required type="number" min="0" placeholder="Amount received" value={amount} onChange={(event) => setAmount(event.target.value)} className="w-full rounded-md border border-slate-300 px-3 py-3" />
-            <select value={method} onChange={(event) => setMethod(event.target.value)} className="w-full rounded-md border border-slate-300 px-3 py-3">
-              <option value="pay_at_clinic">Pay at Clinic</option>
-              <option value="online">Online</option>
-              <option value="advance">Advance</option>
-              <option value="full">Full</option>
-            </select>
-            <input placeholder="Transaction ID optional" value={transactionId} onChange={(event) => setTransactionId(event.target.value)} className="w-full rounded-md border border-slate-300 px-3 py-3" />
-            <button className="w-full rounded-md bg-[#5b0f4d] px-4 py-3 text-sm font-semibold text-white">Save Payment</button>
-          </div>
-        </form>
-      </section>
-
-      <section className="mt-5 grid gap-4 xl:grid-cols-2">
-        <div className="rounded-lg border border-slate-200 bg-white p-5">
-          <h2 className="text-lg font-semibold">Invoices</h2>
-          <div className="mt-4 space-y-3">
-            {invoices.length === 0 ? <EmptyState title="No invoices yet" message="Generate an invoice from a booking." /> : null}
-            {invoices.map((invoice) => (
-              <button key={invoice.id} onClick={() => { setInvoiceId(String(invoice.id)); setAmount(invoice.balance_due); }} className="block w-full rounded-lg border border-slate-200 p-4 text-left hover:border-fuchsia-300">
-                <div className="flex justify-between gap-3">
-                  <div>
-                    <p className="font-semibold">{invoice.invoice_number}</p>
-                    <p className="mt-1 text-sm text-slate-500">Booking {invoice.booking_id || "-"} - {invoice.status.replace("_", " ")}</p>
-                  </div>
-                  <div className="text-right text-sm">
-                    <p className="font-semibold">{money(invoice.total_amount, invoice.currency)}</p>
-                    <p className="text-slate-500">Balance {money(invoice.balance_due, invoice.currency)}</p>
-                  </div>
+          {selectedBooking && (
+            <div className="md:col-span-2 lg:col-span-3 mt-2 rounded-lg border border-fuchsia-100 bg-fuchsia-50/40 p-4 text-sm">
+              <div className="flex justify-between items-start">
+                <div>
+                  <h4 className="font-semibold text-[#5b0f4d]">{selectedBooking.service_name}</h4>
+                  <p className="mt-1 text-xs text-slate-600">
+                    Patient: {selectedBooking.patient?.full_name} ({selectedBooking.patient?.phone})
+                  </p>
+                  <p className="mt-0.5 text-xs text-slate-500">
+                    Date: {selectedBooking.booking_date} at {selectedBooking.booking_time}
+                  </p>
                 </div>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="rounded-lg border border-slate-200 bg-white p-5">
-          <h2 className="text-lg font-semibold">Recent Payments</h2>
-          <div className="mt-4 space-y-3">
-            {payments.length === 0 ? <EmptyState title="No payments yet" message="Payments recorded against invoices appear here." /> : null}
-            {payments.map((payment) => (
-              <div key={payment.id} className="rounded-lg border border-slate-200 p-4">
-                <div className="flex justify-between gap-3">
-                  <div>
-                    <p className="font-semibold">{money(payment.amount, "AED")}</p>
-                    <p className="mt-1 text-sm text-slate-500">Invoice {payment.invoice_id || "-"} - Booking {payment.booking_id || "-"}</p>
-                  </div>
-                  <p className="text-sm font-semibold capitalize">{payment.payment_status.replace("_", " ")}</p>
+                <div className="text-right">
+                  <span className="font-bold text-slate-900">{money(selectedBooking.price, selectedBooking.currency)}</span>
                 </div>
               </div>
-            ))}
-          </div>
+            </div>
+          )}
+        </FormSection>
+
+        {/* Step 2 FormSection */}
+        <div id="payment-section">
+          <FormSection
+            title="Step 2: Collect & Record Payment"
+            onSubmit={recordPayment}
+            actions={
+              <button disabled={busy === "payment" || !invoiceId} className={btnPrimary}>
+                {busy === "payment" ? "Saving..." : "Record Payment"}
+              </button>
+            }
+          >
+            <div className="md:col-span-2 lg:col-span-3">
+              <FormField label="Select Outstanding Invoice" required>
+                <select
+                  value={invoiceId}
+                  onChange={(event) => {
+                    setInvoiceId(event.target.value);
+                    const inv = invoices.find((item) => item.id === Number(event.target.value));
+                    setAmount(inv?.balance_due ?? "");
+                  }}
+                  className={inputClass}
+                >
+                  <option value="">Select invoice...</option>
+                  {invoices
+                    .filter((inv) => inv.status !== "paid")
+                    .map((invoice) => (
+                      <option key={invoice.id} value={invoice.id}>
+                        {invoice.invoice_number} - Balance Due: {money(invoice.balance_due, invoice.currency)}
+                      </option>
+                    ))}
+                </select>
+              </FormField>
+            </div>
+
+            <FormField label="Amount to Collect (AED)" required>
+              <input
+                required
+                type="number"
+                min="0.01"
+                step="any"
+                placeholder="0.00"
+                value={amount}
+                onChange={(event) => setAmount(event.target.value)}
+                className={inputClass}
+              />
+            </FormField>
+
+            <FormField label="Payment Method" required>
+              <select
+                value={method}
+                onChange={(event) => setMethod(event.target.value)}
+                className={inputClass}
+              >
+                <option value="pay_at_clinic">Pay at Clinic (Cash/Card)</option>
+                <option value="online">Online Payment Gateway</option>
+                <option value="bank_transfer">Bank Transfer</option>
+                <option value="insurance">Insurance Claim</option>
+              </select>
+            </FormField>
+
+            <FormField label="Transaction / Reference ID">
+              <input
+                placeholder="Optional receipt or TX ID"
+                value={transactionId}
+                onChange={(event) => setTransactionId(event.target.value)}
+                className={inputClass}
+              />
+            </FormField>
+          </FormSection>
         </div>
-      </section>
+      </div>
+
+      {/* Tables Section */}
+      <div className="mt-8 grid gap-6 xl:grid-cols-2">
+        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-100">
+          <h3 className="text-base font-bold text-slate-800">Invoices</h3>
+          <p className="mt-0.5 text-xs text-slate-500">All invoices generated from patient bookings.</p>
+          <AdminTable
+            columns={invoiceColumns}
+            data={invoices}
+            perPage={5}
+            emptyTitle="No invoices generated yet"
+            emptyMessage="Choose a booking above to generate your first invoice."
+          />
+        </div>
+
+        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-100">
+          <h3 className="text-base font-bold text-slate-800">Recent Payments</h3>
+          <p className="mt-0.5 text-xs text-slate-500">All payments recorded against invoices.</p>
+          <AdminTable
+            columns={paymentColumns}
+            data={payments}
+            perPage={5}
+            emptyTitle="No payments recorded yet"
+            emptyMessage="Payments recorded against invoices will appear here."
+          />
+        </div>
+      </div>
     </AdminShell>
   );
 }

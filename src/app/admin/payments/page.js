@@ -4,7 +4,9 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import AdminPageHeader from "@/components/AdminPageHeader";
 import AdminShell from "@/components/AdminShell";
-import EmptyState from "@/components/EmptyState";
+import AdminTable from "@/components/AdminTable";
+import StatusBadge from "@/components/StatusBadge";
+import { btnPrimary } from "@/components/FormSection";
 import { api, money } from "@/lib/api";
 
 export default function AdminPaymentsPage() {
@@ -15,40 +17,34 @@ export default function AdminPaymentsPage() {
     api.payments().then(setPayments).catch((err) => setError(err.message));
   }, []);
 
+  const columns = [
+    { key: "invoice_id", label: "Invoice", render: (row) => row.invoice_id || "–" },
+    { key: "booking_id", label: "Booking", render: (row) => row.booking_id || "–" },
+    { key: "amount", label: "Amount", render: (row) => <span className="font-semibold text-slate-900">{money(row.amount, "AED")}</span> },
+    { key: "payment_method", label: "Method", render: (row) => <span className="capitalize">{row.payment_method.replaceAll("_", " ")}</span> },
+    {
+      key: "payment_status",
+      label: "Status",
+      render: (row) => <StatusBadge status={row.payment_status} />,
+    },
+    { key: "transaction_id", label: "Transaction", render: (row) => row.transaction_id ? <code className="rounded bg-slate-100 px-2 py-0.5 text-xs">{row.transaction_id}</code> : "–" },
+    { key: "created_at", label: "Date", render: (row) => row.created_at?.slice(0, 10) || "–" },
+  ];
+
   return (
     <AdminShell>
       <AdminPageHeader
         title="Payment History"
         description="Payments are created from Finance Desk so invoice balance stays correct."
-        action={<Link href="/admin/billing" className="rounded-md bg-[#5b0f4d] px-4 py-2 text-sm font-semibold text-white">Open Finance Desk</Link>}
+        action={
+          <Link href="/admin/billing" className={btnPrimary}>
+            Open Finance Desk
+          </Link>
+        }
       />
-      {error ? <p className="mt-4 rounded-md bg-rose-50 p-3 text-sm text-rose-700">{error}</p> : null}
+      {error && <p className="mt-4 rounded-lg bg-rose-50 border border-rose-100 p-3.5 text-sm text-rose-700">{error}</p>}
 
-      <div className="mt-5 overflow-x-auto rounded-lg border border-slate-200 bg-white">
-        <table className="admin-table min-w-full text-left text-sm">
-          <thead className="bg-slate-50 text-slate-600">
-            <tr>
-              {["Invoice", "Booking", "Amount", "Method", "Status", "Transaction", "Date"].map((head) => (
-                <th key={head} className="px-4 py-3 font-semibold">{head}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-200">
-            {payments.map((payment) => (
-              <tr key={payment.id}>
-                <td className="px-4 py-3">{payment.invoice_id || "-"}</td>
-                <td className="px-4 py-3">{payment.booking_id || "-"}</td>
-                <td className="px-4 py-3 font-semibold">{money(payment.amount, "AED")}</td>
-                <td className="px-4 py-3">{payment.payment_method.replaceAll("_", " ")}</td>
-                <td className="px-4 py-3">{payment.payment_status.replaceAll("_", " ")}</td>
-                <td className="px-4 py-3">{payment.transaction_id || "-"}</td>
-                <td className="px-4 py-3">{payment.created_at?.slice(0, 10)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      {payments.length === 0 ? <div className="mt-5"><EmptyState title="No payments yet" message="Open Finance Desk and record a payment against an invoice." /></div> : null}
+      <AdminTable columns={columns} data={payments} perPage={10} emptyTitle="No payments yet" emptyMessage="Open Finance Desk and record a payment against an invoice." />
     </AdminShell>
   );
 }

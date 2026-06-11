@@ -3,15 +3,15 @@ const API_PREFIX = `${API_BASE_URL}/api/v1`;
 
 export function getAdminToken() {
   if (typeof window === "undefined") return "";
-  return localStorage.getItem("clinicflow_admin_token") || "";
+  return localStorage.getItem("royaldutch_admin_token") || "";
 }
 
 export function setAdminToken(token) {
-  localStorage.setItem("clinicflow_admin_token", token);
+  localStorage.setItem("royaldutch_admin_token", token);
 }
 
 export function clearAdminToken() {
-  localStorage.removeItem("clinicflow_admin_token");
+  localStorage.removeItem("royaldutch_admin_token");
 }
 
 export async function apiFetch(path, options = {}) {
@@ -92,6 +92,8 @@ export const api = {
   queueBookingMail: (id, template) => apiFetch(`/bookings/${id}/mail/${template}`, { method: "POST", admin: true }),
   dashboard: () => apiFetch("/dashboard", { admin: true }),
   patients: () => apiFetch("/patients", { admin: true }),
+  createPatient: (payload) => apiFetch("/patients", { method: "POST", admin: true, body: JSON.stringify(payload) }),
+  updatePatient: (id, payload) => apiFetch(`/patients/${id}`, { method: "PATCH", admin: true, body: JSON.stringify(payload) }),
   payments: () => apiFetch("/payments", { admin: true }),
   createPayment: (payload) => apiFetch("/payments", { method: "POST", admin: true, body: JSON.stringify(payload) }),
   updatePayment: (id, payload) => apiFetch(`/payments/${id}`, { method: "PATCH", admin: true, body: JSON.stringify(payload) }),

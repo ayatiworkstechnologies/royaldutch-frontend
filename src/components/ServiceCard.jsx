@@ -1,26 +1,44 @@
 import Link from "next/link";
 import { duration, money } from "@/lib/api";
+import { Clock, ArrowRight, Sparkles } from "lucide-react";
 
 export default function ServiceCard({ service }) {
   return (
-    <article className="group soft-card rounded-lg p-5 hover:-translate-y-0.5 hover:border-fuchsia-300 hover:shadow-[0_20px_50px_rgba(15,23,42,0.1)]">
-      <div className="flex min-h-40 flex-col justify-between gap-5">
-        <div>
-          <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-fuchsia-50 text-sm font-bold text-fuchsia-900 ring-1 ring-fuchsia-100">
+    <article className="premium-card p-6 flex flex-col justify-between min-h-[220px] group">
+      <div>
+        <div className="mb-4 flex items-center justify-between">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-fuchsia-50 to-fuchsia-100/40 text-sm font-bold text-[#5b0f4d] ring-1 ring-fuchsia-100/50">
             {String(service.name || "S").slice(0, 1)}
           </div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-fuchsia-800">{service.currency || "AED"}</p>
-          <h3 className="mt-2 text-lg font-semibold leading-6 text-slate-950">{service.name}</h3>
-          <div className="mt-3 space-y-1">
-            <p className="text-sm text-slate-600">{duration(service.duration_minutes)}</p>
-            <p className="text-sm font-semibold text-slate-950">{money(service.price, service.currency)}</p>
-          </div>
+          <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-100 px-2.5 py-0.5 text-[9px] font-bold text-amber-800 uppercase tracking-wider">
+            <Sparkles size={10} />
+            Premium
+          </span>
         </div>
+        
+        <h3 className="text-lg font-bold text-slate-900 group-hover:text-fuchsia-950 transition-colors font-serif leading-snug">
+          {service.name}
+        </h3>
+        
+        <div className="mt-4 flex items-center gap-4 text-xs text-slate-500">
+          <span className="flex items-center gap-1">
+            <Clock size={12} className="text-slate-400" />
+            {duration(service.duration_minutes)}
+          </span>
+        </div>
+      </div>
+
+      <div className="mt-6 flex items-center justify-between pt-4 border-t border-slate-50">
+        <span className="text-sm font-bold text-fuchsia-950">
+          {money(service.price, service.currency)}
+        </span>
+        
         <Link
           href={`/book/${service.slug}`}
-          className="inline-flex h-11 items-center justify-center rounded-md bg-fuchsia-900 px-4 text-sm font-semibold text-white shadow-sm hover:bg-fuchsia-950"
+          className="btn-premium-primary text-[11px] uppercase tracking-wider py-2 px-4 gap-1.5"
         >
-          Book Now
+          <span>Book Now</span>
+          <ArrowRight size={12} className="group-hover:translate-x-0.5 transition-transform" />
         </Link>
       </div>
     </article>

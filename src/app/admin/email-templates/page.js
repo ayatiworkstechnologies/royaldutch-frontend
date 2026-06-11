@@ -4,7 +4,9 @@ import { useEffect, useState } from "react";
 import { RotateCcw } from "lucide-react";
 import AdminPageHeader from "@/components/AdminPageHeader";
 import AdminShell from "@/components/AdminShell";
-import EmptyState from "@/components/EmptyState";
+import AdminTable from "@/components/AdminTable";
+import StatusBadge from "@/components/StatusBadge";
+import FormSection, { FormField, inputClass, btnPrimary, btnSecondary } from "@/components/FormSection";
 import { api } from "@/lib/api";
 
 const empty = {
@@ -73,7 +75,7 @@ export default function EmailTemplatesPage() {
       else await api.createEmailTemplate(payload);
       setForm(empty);
       setEditingId(null);
-      setNotice(editingId ? "Template updated." : "Template created.");
+      setNotice(editingId ? "Template updated successfully." : "Template created successfully.");
       await load();
     } catch (err) {
       setError(err.message);
@@ -87,8 +89,9 @@ export default function EmailTemplatesPage() {
     setError("");
     setNotice("");
     try {
-      setTemplates(await api.seedEmailTemplates());
-      setNotice("Default templates are ready.");
+      const seeded = await api.seedEmailTemplates();
+      setTemplates(seeded);
+      setNotice("Default templates have been seeded.");
     } catch (err) {
       setError(err.message);
     } finally {
@@ -97,11 +100,56 @@ export default function EmailTemplatesPage() {
   }
 
   async function remove(id) {
+    if (!window.confirm("Are you sure you want to delete this template?")) return;
     setBusy(`delete-${id}`);
-    await api.deleteEmailTemplate(id);
-    await load();
-    setBusy("");
+    try {
+      await api.deleteEmailTemplate(id);
+      setNotice("Template deleted.");
+      await load();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy("");
+    }
   }
+
+  const columns = [
+    {
+      key: "name",
+      label: "Name / Slug",
+      render: (row) => (
+        <div>
+          <span className="font-semibold text-slate-900">{row.name}</span>
+          <br />
+          <code className="text-xs font-mono text-fuchsia-700 bg-fuchsia-50 px-1 py-0.5 rounded">{row.slug}</code>
+        </div>
+      ),
+    },
+    { key: "subject", label: "Subject Line" },
+    { key: "status", label: "Status", render: (row) => <StatusBadge status={row.status} /> },
+    { key: "description", label: "Description", render: (row) => row.description || <span className="text-slate-400">–</span> },
+    {
+      key: "actions",
+      label: "Actions",
+      render: (row) => (
+        <div className="flex gap-2">
+          <button
+            onClick={() => edit(row)}
+            className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-fuchsia-50 hover:text-fuchsia-700 hover:border-fuchsia-200"
+          >
+            Edit
+          </button>
+          <button
+            disabled={busy === `delete-${row.id}`}
+            onClick={() => remove(row.id)}
+            className="rounded-lg border border-rose-200 bg-white px-3 py-1.5 text-xs font-semibold text-rose-600 transition hover:bg-rose-50 hover:text-rose-700 hover:border-rose-300 disabled:opacity-60"
+          >
+            {busy === `delete-${row.id}` ? "Deleting..." : "Delete"}
+          </button>
+        </div>
+      ),
+    },
+  ];
 
   return (
     <AdminShell>
@@ -109,62 +157,126 @@ export default function EmailTemplatesPage() {
         title="Email Templates"
         description="Manage reusable Royal Dutch email templates for bookings, reminders and payments."
         action={
-          <button onClick={seedDefaults} className="inline-flex items-center gap-2 rounded-md bg-[#5b0f4d] px-4 py-2 text-sm font-semibold text-white">
-            <RotateCcw size={16} /> Defaults
+          <button
+            onClick={seedDefaults}
+            disabled={busy === "seed"}
+            className="inline-flex items-center gap-2 rounded-lg bg-[#5b0f4d] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#4a0c3f] shadow-sm disabled:opacity-60"
+          >
+            <RotateCcw size={16} /> {busy === "seed" ? "Seeding..." : "Seed Defaults"}
           </button>
         }
       />
 
-      {notice ? <p className="mt-4 rounded-md bg-emerald-50 p-3 text-sm text-emerald-700">{notice}</p> : null}
-      {error ? <p className="mt-4 rounded-md bg-rose-50 p-3 text-sm text-rose-700">{error}</p> : null}
+      {notice && <p className="mt-4 rounded-lg bg-emerald-50 border border-emerald-100 p-3.5 text-sm text-emerald-700">{notice}</p>}
+      {error && <p className="mt-4 rounded-lg bg-rose-50 border border-rose-100 p-3.5 text-sm text-rose-700">{error}</p>}
 
-      <form onSubmit={save} className="mt-5 grid gap-3 rounded-lg border border-fuchsia-100 bg-white p-5 shadow-sm md:grid-cols-3">
-        <input required placeholder="Template name" value={form.name} onChange={(event) => setField("name", event.target.value)} className="rounded-md border border-slate-300 px-3 py-2" />
-        <input required placeholder="Slug e.g. confirmed" value={form.slug} onChange={(event) => setField("slug", event.target.value)} className="rounded-md border border-slate-300 px-3 py-2" />
-        <select value={form.status} onChange={(event) => setField("status", event.target.value)} className="rounded-md border border-slate-300 px-3 py-2">
-          <option value="active">Active</option>
-          <option value="inactive">Inactive</option>
-        </select>
-        <input placeholder="Description" value={form.description} onChange={(event) => setField("description", event.target.value)} className="rounded-md border border-slate-300 px-3 py-2 md:col-span-3" />
-        <input required placeholder="Subject" value={form.subject} onChange={(event) => setField("subject", event.target.value)} className="rounded-md border border-slate-300 px-3 py-2 md:col-span-3" />
-        <textarea required placeholder="Email body" value={form.body} onChange={(event) => setField("body", event.target.value)} className="min-h-48 rounded-md border border-slate-300 px-3 py-2 md:col-span-3" />
-        <div className="md:col-span-3">
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Available placeholders</p>
-          <div className="mt-2 flex flex-wrap gap-2">
+      <FormSection
+        title={editingId ? `Edit Template: ${form.name}` : "Create Email Template"}
+        onSubmit={save}
+        actions={
+          <>
+            <button disabled={busy === "save"} className={btnPrimary}>
+              {busy === "save" ? "Saving..." : editingId ? "Update Template" : "Create Template"}
+            </button>
+            {editingId && (
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingId(null);
+                  setForm(empty);
+                }}
+                className={btnSecondary}
+              >
+                Cancel Edit
+              </button>
+            )}
+          </>
+        }
+      >
+        <FormField label="Template Name" required>
+          <input
+            required
+            placeholder="e.g. Booking Confirmed"
+            value={form.name}
+            onChange={(event) => setField("name", event.target.value)}
+            className={inputClass}
+          />
+        </FormField>
+        <FormField label="Template Slug" required>
+          <input
+            required
+            placeholder="e.g. confirmed"
+            value={form.slug}
+            onChange={(event) => setField("slug", event.target.value)}
+            className={inputClass}
+          />
+        </FormField>
+        <FormField label="Status">
+          <select
+            value={form.status}
+            onChange={(event) => setField("status", event.target.value)}
+            className={inputClass}
+          >
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+          </select>
+        </FormField>
+        <div className="md:col-span-2 lg:col-span-3">
+          <FormField label="Description">
+            <input
+              placeholder="Internal notes about when this template is sent"
+              value={form.description}
+              onChange={(event) => setField("description", event.target.value)}
+              className={inputClass}
+            />
+          </FormField>
+        </div>
+        <div className="md:col-span-2 lg:col-span-3">
+          <FormField label="Email Subject" required>
+            <input
+              required
+              placeholder="e.g. Your Appointment at Royal Dutch Clinic is Confirmed!"
+              value={form.subject}
+              onChange={(event) => setField("subject", event.target.value)}
+              className={inputClass}
+            />
+          </FormField>
+        </div>
+        <div className="md:col-span-2 lg:col-span-3">
+          <FormField label="Email Body (Markdown or Plain Text)" required>
+            <textarea
+              required
+              placeholder="Dear {patient_name}, ..."
+              value={form.body}
+              onChange={(event) => setField("body", event.target.value)}
+              className={`${inputClass} min-h-[16rem] font-mono text-xs leading-relaxed`}
+            />
+          </FormField>
+        </div>
+        <div className="md:col-span-2 lg:col-span-3 bg-slate-50 rounded-lg p-4 border border-slate-100">
+          <p className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2.5">Available placeholders (Click to insert)</p>
+          <div className="flex flex-wrap gap-1.5">
             {placeholders.map((item) => (
-              <button key={item} type="button" onClick={() => setField("body", `${form.body}${form.body ? " " : ""}${item}`)} className="rounded-full bg-fuchsia-50 px-3 py-1 text-xs font-semibold text-[#5b0f4d]">
+              <button
+                key={item}
+                type="button"
+                onClick={() => setField("body", `${form.body}${form.body ? " " : ""}${item}`)}
+                className="rounded-lg bg-white border border-slate-200 px-3 py-1.5 text-xs font-semibold text-[#5b0f4d] hover:border-fuchsia-300 hover:bg-fuchsia-50/30 transition duration-150"
+              >
                 {item}
               </button>
             ))}
           </div>
         </div>
-        <div className="flex flex-wrap gap-2 md:col-span-3">
-          <button disabled={busy === "save"} className="rounded-md bg-fuchsia-800 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">
-            {busy === "save" ? "Saving..." : editingId ? "Update Template" : "Create Template"}
-          </button>
-          {editingId ? <button type="button" onClick={() => { setEditingId(null); setForm(empty); }} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold">Cancel Edit</button> : null}
-        </div>
-      </form>
+      </FormSection>
 
-      <div className="mt-5 grid gap-4 lg:grid-cols-2">
-        {templates.length === 0 ? <EmptyState title="No email templates yet" message="Click Defaults to add the Royal Dutch booking templates." /> : null}
-        {templates.map((template) => (
-          <article key={template.id} className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <p className="font-semibold text-slate-900">{template.name}</p>
-                <p className="mt-1 text-sm text-slate-500">{template.slug} - {template.status}</p>
-              </div>
-              <div className="flex gap-2">
-                <button onClick={() => edit(template)} className="rounded-md border border-slate-300 px-3 py-2 text-sm">Edit</button>
-                <button disabled={busy === `delete-${template.id}`} onClick={() => remove(template.id)} className="rounded-md border border-rose-200 px-3 py-2 text-sm text-rose-700 disabled:opacity-60">Delete</button>
-              </div>
-            </div>
-            <p className="mt-4 text-sm font-semibold">{template.subject}</p>
-            <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-600">{template.body}</p>
-          </article>
-        ))}
-      </div>
+      <AdminTable
+        columns={columns}
+        data={templates}
+        perPage={5}
+        emptyTitle="No email templates yet"
+        emptyMessage="Click 'Seed Defaults' to add the Royal Dutch default booking templates."
+      />
     </AdminShell>
   );
 }

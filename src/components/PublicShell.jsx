@@ -1,44 +1,79 @@
 import Link from "next/link";
+import AiHelpButton from "@/components/AiHelpButton";
+import { Phone, Clock, MapPin } from "lucide-react";
 
 export default function PublicShell({ children }) {
   return (
-    <div className="min-h-screen bg-[#f8f4f7] text-slate-950">
-      <header className="sticky top-0 z-40 border-b border-fuchsia-950/10 bg-white/95 backdrop-blur">
-        <div className="royal-topbar">
-          <div className="mx-auto flex max-w-7xl items-center justify-center gap-3 px-4 py-2 text-xs font-semibold uppercase tracking-wide sm:justify-end">
-            <span className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-white/70 text-[10px]">O</span>
-            <span>Opening Hours: Monday to Saturday 10:00 AM - 08:00 PM</span>
+    <div className="min-h-screen bg-[#fcfafc] text-slate-950 flex flex-col font-sans">
+      <header className="sticky top-0 z-40 w-full border-b border-fuchsia-950/5 bg-white/80 backdrop-blur-md">
+        {/* Luxury Top Info Bar */}
+        <div className="royal-topbar hidden sm:block">
+          <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-2 text-[11px] font-medium tracking-wider text-fuchsia-100/90 sm:px-6 lg:px-8">
+            <div className="flex items-center gap-4">
+              <span className="flex items-center gap-1.5">
+                <Clock size={11} className="text-amber-300" />
+                Monday - Saturday 10:00 AM - 08:00 PM
+              </span>
+              <span className="flex items-center gap-1.5">
+                <MapPin size={11} className="text-amber-300" />
+                Dubai, UAE
+              </span>
+            </div>
+            <a href="tel:+9714000000" className="flex items-center gap-1.5 hover:text-white transition-colors">
+              <Phone size={11} className="text-amber-300" />
+              Toll Free: 800-ROYAL
+            </a>
           </div>
         </div>
-        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-4 py-5 sm:px-6 lg:flex-row lg:px-8">
-          <Link href="/" className="text-center">
-            <span className="royal-logo-text block text-3xl font-bold leading-none sm:text-4xl">
+
+        {/* Main Header Container */}
+        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:flex-row lg:py-5 lg:px-8">
+          <Link href="/" className="group flex flex-col items-center text-center lg:items-start lg:text-left">
+            <span className="royal-logo-text block text-3xl font-bold tracking-tight leading-none sm:text-4xl text-transparent bg-clip-text bg-gradient-to-r from-[#5b0f4d] to-[#861265] group-hover:opacity-90 transition-opacity">
               Royal Dutch
             </span>
-            <span className="royal-logo-text mt-1 block text-sm font-semibold uppercase tracking-[0.18em]">
+            <span className="mt-1 block text-[10px] font-bold uppercase tracking-[0.22em] text-[#a21caf]/80">
               Medical Centre
             </span>
           </Link>
-          <nav className="flex items-center gap-2 text-sm font-medium text-slate-700">
-            <Link className="rounded-md px-3 py-2 hover:bg-fuchsia-50 hover:text-fuchsia-900" href="/services">
+          
+          <nav className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-slate-600 sm:text-sm">
+            <Link className="rounded-full px-4 py-2 hover:bg-fuchsia-50 hover:text-fuchsia-950 transition-all duration-200" href="/">
+              Home
+            </Link>
+            <Link className="rounded-full px-4 py-2 hover:bg-fuchsia-50 hover:text-fuchsia-950 transition-all duration-200" href="/services">
               Services
             </Link>
-            <Link className="hidden rounded-md px-3 py-2 hover:bg-fuchsia-50 hover:text-fuchsia-900 sm:block" href="/my-bookings">
+            <Link className="hidden rounded-full px-4 py-2 hover:bg-fuchsia-50 hover:text-fuchsia-950 transition-all duration-200 sm:block" href="/my-bookings">
               My Bookings
             </Link>
-            <Link className="rounded-md bg-[#5b0f4d] px-4 py-2 text-white shadow-sm hover:bg-[#4a0b3d]" href="/book">
-              Book
+            <Link className="hidden rounded-full px-4 py-2 hover:bg-fuchsia-50 hover:text-fuchsia-950 transition-all duration-200 sm:block" href="/admin/login">
+              Admin Portal
+            </Link>
+            <Link className="ml-2 btn-premium-primary px-5 py-2.5 text-xs tracking-wider" href="/book">
+              Book Appointment
             </Link>
           </nav>
         </div>
       </header>
-      <main>{children}</main>
+
+      <main className="flex-grow">{children}</main>
+
+      <footer className="border-t border-fuchsia-950/5 bg-white py-8 text-center text-xs text-slate-400">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <p className="font-serif text-sm font-semibold text-[#5b0f4d] mb-2">Royal Dutch Medical Centre</p>
+          <p>© {new Date().getFullYear()} Royal Dutch Medical Centre. All rights reserved.</p>
+        </div>
+      </footer>
+
+      {/* Mobile Floating Action Button */}
       <Link
         href="/book"
-        className="fixed bottom-4 left-4 right-4 z-40 flex h-12 items-center justify-center rounded-md bg-[#5b0f4d] text-sm font-semibold text-white shadow-[0_16px_40px_rgba(91,15,77,0.28)] hover:bg-[#4a0b3d] sm:hidden"
+        className="fixed bottom-4 left-4 z-40 flex h-12 w-[calc(100%-6.5rem)] items-center justify-center rounded-full bg-gradient-to-r from-[#5b0f4d] to-[#38072e] text-xs font-bold uppercase tracking-wider text-white shadow-[0_12px_30px_rgba(91,15,77,0.3)] hover:opacity-95 active:scale-95 sm:hidden transition-all duration-200"
       >
         Book Appointment
       </Link>
+      <AiHelpButton />
     </div>
   );
 }
