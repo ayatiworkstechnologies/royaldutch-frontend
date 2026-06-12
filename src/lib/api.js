@@ -14,6 +14,30 @@ export function clearAdminToken() {
   localStorage.removeItem("royaldutch_admin_token");
 }
 
+export function getCustomerToken() {
+  if (typeof window === "undefined") return "";
+  return localStorage.getItem("royaldutch_customer_token") || "";
+}
+
+export function setCustomerSession(data) {
+  localStorage.setItem("royaldutch_customer_token", data.access_token);
+  localStorage.setItem("royaldutch_customer_profile", JSON.stringify({ name: data.name, email: data.email, role: data.role }));
+}
+
+export function getCustomerProfile() {
+  if (typeof window === "undefined") return null;
+  try {
+    return JSON.parse(localStorage.getItem("royaldutch_customer_profile") || "null");
+  } catch {
+    return null;
+  }
+}
+
+export function clearCustomerSession() {
+  localStorage.removeItem("royaldutch_customer_token");
+  localStorage.removeItem("royaldutch_customer_profile");
+}
+
 export async function apiFetch(path, options = {}) {
   const headers = {
     "Content-Type": "application/json",
@@ -22,6 +46,10 @@ export async function apiFetch(path, options = {}) {
 
   if (options.admin) {
     const token = getAdminToken();
+    if (token) headers.Authorization = `Bearer ${token}`;
+  }
+  if (options.customer) {
+    const token = getCustomerToken();
     if (token) headers.Authorization = `Bearer ${token}`;
   }
 
@@ -50,8 +78,30 @@ export async function apiFetch(path, options = {}) {
   return data;
 }
 
+export async function apiBlob(path, options = {}) {
+  const headers = { ...(options.headers || {}) };
+  if (options.admin) {
+    const token = getAdminToken();
+    if (token) headers.Authorization = `Bearer ${token}`;
+  }
+  if (options.customer) {
+    const token = getCustomerToken();
+    if (token) headers.Authorization = `Bearer ${token}`;
+  }
+  const response = await fetch(`${API_PREFIX}${path}`, { ...options, headers, cache: "no-store" });
+  if (!response.ok) {
+    if (response.status === 401 && options.admin) clearAdminToken();
+    throw new Error("Download failed");
+  }
+  return response.blob();
+}
+
 export const api = {
   login: (payload) => apiFetch("/auth/login", { method: "POST", body: JSON.stringify(payload) }),
+  register: (payload) => apiFetch("/auth/register", { method: "POST", body: JSON.stringify(payload) }),
+  requestCustomerOtp: (email) => apiFetch("/auth/otp/request", { method: "POST", body: JSON.stringify({ email }) }),
+  verifyCustomerOtp: (email, code, extra = {}) => apiFetch("/auth/otp/verify", { method: "POST", body: JSON.stringify({ email, code, ...extra }) }),
+  googleLogin: (credential) => apiFetch("/auth/google", { method: "POST", body: JSON.stringify({ credential }) }),
   categories: (includeInactive = false) => apiFetch(`/categories${includeInactive ? "?include_inactive=true" : ""}`),
   createCategory: (payload) => apiFetch("/categories", { method: "POST", admin: true, body: JSON.stringify(payload) }),
   updateCategory: (id, payload) => apiFetch(`/categories/${id}`, { method: "PATCH", admin: true, body: JSON.stringify(payload) }),
@@ -77,6 +127,11 @@ export const api = {
   },
   createBooking: (payload) => apiFetch("/bookings", { method: "POST", body: JSON.stringify(payload) }),
   lookupBookings: (phone) => apiFetch(`/bookings/lookup?phone=${encodeURIComponent(phone)}`),
+  myBookings: () => apiFetch("/bookings/me", { customer: true }),
+  myProfile: () => apiFetch("/account/me", { customer: true }),
+  updateMyProfile: (payload) => apiFetch("/account/me", { method: "PATCH", customer: true, body: JSON.stringify(payload) }),
+  myInvoices: () => apiFetch("/account/invoices", { customer: true }),
+  myInvoicePdf: (id) => apiBlob(`/account/invoices/${id}/pdf`, { customer: true }),
   bookings: ({ status = "", bookingDate = "" } = {}) => {
     const params = new URLSearchParams();
     if (status) params.set("status", status);
@@ -98,6 +153,9 @@ export const api = {
   createPayment: (payload) => apiFetch("/payments", { method: "POST", admin: true, body: JSON.stringify(payload) }),
   updatePayment: (id, payload) => apiFetch(`/payments/${id}`, { method: "PATCH", admin: true, body: JSON.stringify(payload) }),
   invoices: () => apiFetch("/billing", { admin: true }),
+  invoice: (id) => apiFetch(`/billing/${id}`, { admin: true }),
+  invoicePdf: (id) => apiBlob(`/billing/${id}/pdf`, { admin: true }),
+  sendInvoice: (id, attachPdf = true) => apiFetch(`/billing/${id}/send?attach_pdf=${attachPdf ? "true" : "false"}`, { method: "POST", admin: true }),
   createInvoice: (payload) => apiFetch("/billing", { method: "POST", admin: true, body: JSON.stringify(payload) }),
   createInvoiceFromBooking: (bookingId, payload = {}) => apiFetch(`/billing/from-booking/${bookingId}`, { method: "POST", admin: true, body: JSON.stringify(payload) }),
   updateInvoice: (id, payload) => apiFetch(`/billing/${id}`, { method: "PATCH", admin: true, body: JSON.stringify(payload) }),
@@ -114,6 +172,8 @@ export const api = {
   createEmailTemplate: (payload) => apiFetch("/email-templates", { method: "POST", admin: true, body: JSON.stringify(payload) }),
   updateEmailTemplate: (id, payload) => apiFetch(`/email-templates/${id}`, { method: "PATCH", admin: true, body: JSON.stringify(payload) }),
   deleteEmailTemplate: (id) => apiFetch(`/email-templates/${id}`, { method: "DELETE", admin: true }),
+  settings: () => apiFetch("/settings", { admin: true }),
+  updateSettings: (payload) => apiFetch("/settings", { method: "PATCH", admin: true, body: JSON.stringify(payload) }),
   notifications: () => apiFetch("/notifications", { admin: true }),
   createNotification: (payload) => apiFetch("/notifications", { method: "POST", admin: true, body: JSON.stringify(payload) }),
   updateNotification: (id, payload) => apiFetch(`/notifications/${id}`, { method: "PATCH", admin: true, body: JSON.stringify(payload) }),

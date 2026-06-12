@@ -8,7 +8,7 @@ import { Mail, Lock, ShieldAlert, Sparkles, LogIn } from "lucide-react";
 export default function AdminLoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("admin@royaldutch.ae");
-  const [password, setPassword] = useState("Admin@12345");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -18,6 +18,9 @@ export default function AdminLoginPage() {
     setLoading(true);
     try {
       const data = await api.login({ email, password });
+      if (data.role !== "admin") {
+        throw new Error("This account does not have admin access.");
+      }
       setAdminToken(data.access_token);
       router.push("/admin/dashboard");
     } catch (err) {

@@ -94,6 +94,40 @@ export default function AdminBillingPage() {
     }
   }
 
+  async function downloadInvoice(invoice) {
+    setError("");
+    setBusy(`pdf-${invoice.id}`);
+    try {
+      const blob = await api.invoicePdf(invoice.id);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${invoice.invoice_number}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function sendInvoice(invoice) {
+    setError("");
+    setBusy(`send-${invoice.id}`);
+    try {
+      const result = await api.sendInvoice(invoice.id, true);
+      if (result.status === "failed") setError(result.error_message || "Invoice email failed to send.");
+      await load();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy("");
+    }
+  }
+
   function selectInvoiceForPayment(invoice) {
     setInvoiceId(String(invoice.id));
     setAmount(invoice.balance_due);
@@ -134,16 +168,35 @@ export default function AdminBillingPage() {
       key: "actions",
       label: "Actions",
       render: (row) => (
-        row.status !== "paid" ? (
+        <div className="flex flex-wrap gap-2">
           <button
-            onClick={() => selectInvoiceForPayment(row)}
-            className="rounded-lg border border-[#5b0f4d] bg-white px-3 py-1.5 text-xs font-semibold text-[#5b0f4d] transition hover:bg-fuchsia-50"
+            type="button"
+            onClick={() => downloadInvoice(row)}
+            disabled={busy === `pdf-${row.id}`}
+            className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
           >
-            Collect Payment
+            PDF
           </button>
-        ) : (
-          <span className="text-xs font-medium text-emerald-600">Settled</span>
-        )
+          <button
+            type="button"
+            onClick={() => sendInvoice(row)}
+            disabled={busy === `send-${row.id}`}
+            className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100"
+          >
+            Send
+          </button>
+          {row.status !== "paid" ? (
+            <button
+              type="button"
+              onClick={() => selectInvoiceForPayment(row)}
+              className="rounded-lg border border-[#5b0f4d] bg-white px-3 py-1.5 text-xs font-semibold text-[#5b0f4d] transition hover:bg-fuchsia-50"
+            >
+              Collect
+            </button>
+          ) : (
+            <span className="rounded-lg bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700">Settled</span>
+          )}
+        </div>
       ),
     },
   ];
@@ -307,8 +360,8 @@ export default function AdminBillingPage() {
               >
                 <option value="pay_at_clinic">Pay at Clinic (Cash/Card)</option>
                 <option value="online">Online Payment Gateway</option>
-                <option value="bank_transfer">Bank Transfer</option>
-                <option value="insurance">Insurance Claim</option>
+                <option value="advance">Advance Payment</option>
+                <option value="full">Full Payment</option>
               </select>
             </FormField>
 

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { api, duration, money } from "@/lib/api";
+import { api, duration, money, setCustomerSession } from "@/lib/api";
 import { 
   User, 
   Calendar as CalendarIcon, 
@@ -17,7 +17,9 @@ import {
   FileText,
   BadgeAlert,
   ChevronRight,
-  X
+  X,
+  Mail,
+  KeyRound
 } from "lucide-react";
 
 const today = new Date().toISOString().slice(0, 10);
@@ -29,7 +31,7 @@ const steps = [
   { name: "Confirm", icon: FileText }
 ];
 
-export default function BookingFlow({ serviceSlug }) {
+export default function BookingFlow({ serviceSlug, onBooked }) {
   const router = useRouter();
   const [step, setStep] = useState(0);
   const [service, setService] = useState(null);
@@ -51,18 +53,14 @@ export default function BookingFlow({ serviceSlug }) {
     first_visit: true,
   });
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
-  const [loginEmail, setLoginEmail] = useState("");
-  const [modalMode, setModalMode] = useState("email"); // "email" or "code"
-  const [otp, setOtp] = useState(["", "", "", "", "", ""]);
-
-  useEffect(() => {
-    if (isLoginModalOpen && modalMode === "code") {
-      setTimeout(() => {
-        const firstInput = document.getElementById("otp-0");
-        if (firstInput) firstInput.focus();
-      }, 100);
-    }
-  }, [isLoginModalOpen, modalMode]);
+  const [authMode, setAuthMode] = useState("login");
+  const [authLoading, setAuthLoading] = useState(false);
+  const [authError, setAuthError] = useState("");
+  const [authNotice, setAuthNotice] = useState("");
+  const [authForm, setAuthForm] = useState({ name: "", email: "", phone: "", password: "" });
+  const [otpCode, setOtpCode] = useState("");
+  const [otpRequested, setOtpRequested] = useState(false);
+  const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "";
 
   const assignedStaff = useMemo(() => staff.filter((member) => member.service_ids?.includes(service?.id)), [staff, service]);
   const selectedStaffName = selectedStaff ? assignedStaff.find((member) => member.id === Number(selectedStaff))?.name : "Any Available Specialist";
@@ -104,96 +102,109 @@ export default function BookingFlow({ serviceSlug }) {
     }
   }, [step]);
 
-  function handleSendCode(e) {
-    e.preventDefault();
-    if (loginEmail) {
-      setModalMode("code");
+  useEffect(() => {
+    if (!isLoginModalOpen || !googleClientId) return;
+
+    function renderGoogleButton() {
+      const target = document.getElementById("booking-google-login");
+      if (!target || !window.google?.accounts?.id) return;
+      target.innerHTML = "";
+      window.google.accounts.id.initialize({
+        client_id: googleClientId,
+        callback: async (response) => {
+          await handleGoogleCredential(response.credential);
+        },
+      });
+      window.google.accounts.id.renderButton(target, {
+        theme: "outline",
+        size: "large",
+        shape: "rectangular",
+        width: 360,
+        text: "continue_with",
+      });
     }
-  }
 
-  function handleOtpChange(e, index) {
-    const value = e.target.value;
-    const cleanValue = value.replace(/[^0-9]/g, "");
-    const newOtp = [...otp];
-
-    if (!cleanValue) {
-      newOtp[index] = "";
-      setOtp(newOtp);
+    if (window.google?.accounts?.id) {
+      renderGoogleButton();
       return;
     }
-
-    if (cleanValue.length > 1) {
-      if (otp[index] !== "" && cleanValue.startsWith(otp[index])) {
-        const char = cleanValue[cleanValue.length - 1];
-        newOtp[index] = char;
-        setOtp(newOtp);
-        if (index < 5) {
-          const nextInput = document.getElementById(`otp-${index + 1}`);
-          if (nextInput) nextInput.focus();
-        }
-      } else {
-        const digits = cleanValue.split("").slice(0, 6 - index);
-        digits.forEach((digit, idx) => {
-          newOtp[index + idx] = digit;
-        });
-        setOtp(newOtp);
-        const nextIdx = Math.min(index + digits.length, 5);
-        const nextInput = document.getElementById(`otp-${nextIdx}`);
-        if (nextInput) nextInput.focus();
-      }
-    } else {
-      newOtp[index] = cleanValue;
-      setOtp(newOtp);
-      if (index < 5) {
-        const nextInput = document.getElementById(`otp-${index + 1}`);
-        if (nextInput) nextInput.focus();
-      }
+    const existing = document.querySelector("script[src='https://accounts.google.com/gsi/client']");
+    if (existing) {
+      existing.addEventListener("load", renderGoogleButton, { once: true });
+      return;
     }
+    const script = document.createElement("script");
+    script.src = "https://accounts.google.com/gsi/client";
+    script.async = true;
+    script.defer = true;
+    script.onload = renderGoogleButton;
+    document.head.appendChild(script);
+  }, [isLoginModalOpen, googleClientId]);
+
+  function updateAuthForm(field, value) {
+    setAuthForm((current) => ({ ...current, [field]: value }));
   }
 
-  function handleOtpKeyDown(e, index) {
-    if (e.key === "Backspace") {
-      e.preventDefault();
-      const newOtp = [...otp];
-      if (otp[index] !== "") {
-        newOtp[index] = "";
-        setOtp(newOtp);
-      } else if (index > 0) {
-        newOtp[index - 1] = "";
-        setOtp(newOtp);
-        const prevInput = document.getElementById(`otp-${index - 1}`);
-        if (prevInput) {
-          prevInput.focus();
-        }
-      }
-    }
-  }
-
-  function handleVerifyCode(e) {
-    if (e) e.preventDefault();
-    const code = otp.join("");
-    if (code.length === 6) {
-      updatePatient("email", loginEmail);
-      if (!patient.full_name) {
-        updatePatient("full_name", "Registered Patient");
-        updatePatient("phone", "+971 50 123 4567");
-      }
-      setIsLoginModalOpen(false);
-      setModalMode("email");
-      setOtp(["", "", "", "", "", ""]);
-    }
-  }
-
-  function handleSocialLogin(provider) {
-    const mockEmail = `${provider}-user@example.com`;
-    setLoginEmail(mockEmail);
-    updatePatient("email", mockEmail);
-    if (!patient.full_name) {
-      updatePatient("full_name", `${provider.charAt(0).toUpperCase() + provider.slice(1)} User`);
-      updatePatient("phone", "+971 50 999 8888");
-    }
+  function closeAuthModal() {
     setIsLoginModalOpen(false);
-    setModalMode("email");
+    setAuthError("");
+    setAuthNotice("");
+  }
+
+  function applyCustomerSession(data, fallback = {}) {
+    setCustomerSession(data);
+    const email = data.email || fallback.email || authForm.email;
+    const name = data.name || fallback.name || authForm.name;
+    updatePatient("email", email);
+    if (name && !patient.full_name) updatePatient("full_name", name);
+    if (fallback.phone) updatePatient("phone", fallback.phone);
+    closeAuthModal();
+  }
+
+  async function handleRequestOtp(event) {
+    event.preventDefault();
+    setAuthError("");
+    setAuthNotice("");
+    setAuthLoading(true);
+    try {
+      const result = await api.requestCustomerOtp(authForm.email);
+      setOtpRequested(true);
+      setAuthNotice(result?.dev_code ? `OTP sent. Dev code: ${result.dev_code}` : "OTP sent to your email.");
+    } catch (err) {
+      setAuthError(err.message);
+    } finally {
+      setAuthLoading(false);
+    }
+  }
+
+  async function handleVerifyOtp(event) {
+    event.preventDefault();
+    setAuthError("");
+    setAuthNotice("");
+    setAuthLoading(true);
+    try {
+      const extra = authMode === "register" ? { name: authForm.name, phone: authForm.phone } : {};
+      const data = await api.verifyCustomerOtp(authForm.email, otpCode, extra);
+      applyCustomerSession(data, { email: authForm.email, ...extra });
+    } catch (err) {
+      setAuthError(err.message);
+    } finally {
+      setAuthLoading(false);
+    }
+  }
+
+  async function handleGoogleCredential(credential) {
+    setAuthError("");
+    setAuthNotice("");
+    setAuthLoading(true);
+    try {
+      const data = await api.googleLogin(credential);
+      applyCustomerSession(data);
+    } catch (err) {
+      setAuthError(err.message);
+    } finally {
+      setAuthLoading(false);
+    }
   }
 
   function updatePatient(field, value) {
@@ -241,7 +252,11 @@ export default function BookingFlow({ serviceSlug }) {
         notes: patient.notes || null,
         first_visit: Boolean(patient.first_visit),
       });
-      router.push(`/booking-success?code=${encodeURIComponent(booking.booking_code)}&status=${booking.status}`);
+      if (onBooked) {
+        onBooked(booking);
+      } else {
+        router.push(`/booking-success?code=${encodeURIComponent(booking.booking_code)}&status=${booking.status}`);
+      }
     } catch (err) {
       setError(err.message);
     } finally {
@@ -416,8 +431,138 @@ export default function BookingFlow({ serviceSlug }) {
         />
       </div>
 
-      {/* Login / Sign Up Modal */}
+      {/* Login / Register Modal */}
       {isLoginModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={closeAuthModal} />
+          <div className="relative z-10 w-full max-w-lg rounded-2xl bg-white p-7 shadow-2xl">
+            <button
+              type="button"
+              onClick={closeAuthModal}
+              className="absolute right-4 top-4 rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+            >
+              <X size={18} />
+            </button>
+
+            <div className="text-center">
+              <h3 className="font-serif text-2xl font-bold text-slate-900">Patient Account</h3>
+              <p className="mt-1.5 text-sm text-slate-500">Sign in, use email OTP, or create an account to book faster.</p>
+            </div>
+
+            {googleClientId ? (
+              <div className="mt-6 rounded-xl border border-slate-200 bg-white p-2 shadow-sm">
+                <div id="booking-google-login" className="flex min-h-11 justify-center" />
+              </div>
+            ) : (
+              <div className="mt-6 rounded-xl border border-fuchsia-100 bg-fuchsia-50/40 p-3 text-center text-xs font-semibold text-[#5b0f4d]">
+                Google login is available after setting NEXT_PUBLIC_GOOGLE_CLIENT_ID.
+              </div>
+            )}
+
+            <div className="my-5 flex items-center gap-3">
+              <span className="h-px flex-1 bg-slate-200" />
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">or continue with email</span>
+              <span className="h-px flex-1 bg-slate-200" />
+            </div>
+
+            <div className="grid grid-cols-2 rounded-xl bg-slate-100 p-1">
+              {[
+                ["login", "Sign In"],
+                ["register", "Register"],
+              ].map(([mode, label]) => (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => {
+                    setAuthMode(mode);
+                    setAuthError("");
+                    setAuthNotice("");
+                    setOtpRequested(false);
+                    setOtpCode("");
+                  }}
+                  className={`rounded-lg py-2 text-xs font-bold uppercase tracking-wider ${authMode === mode ? "bg-white text-[#5b0f4d] shadow-sm" : "text-slate-500"}`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {authError ? <p className="mt-4 rounded-lg border border-rose-100 bg-rose-50 p-3 text-xs font-semibold text-rose-700">{authError}</p> : null}
+            {authNotice ? <p className="mt-4 rounded-lg border border-fuchsia-100 bg-fuchsia-50 p-3 text-xs font-semibold text-[#5b0f4d]">{authNotice}</p> : null}
+
+            <form onSubmit={otpRequested ? handleVerifyOtp : handleRequestOtp} className="mt-5 space-y-4">
+              {authMode === "register" && !otpRequested ? (
+                <>
+                  <input
+                    required
+                    placeholder="Full name"
+                    value={authForm.name}
+                    onChange={(e) => updateAuthForm("name", e.target.value)}
+                    className="w-full rounded-lg border border-slate-200 px-3.5 py-3 text-sm shadow-sm focus:border-fuchsia-400 focus:outline-none focus:ring-2 focus:ring-fuchsia-100"
+                  />
+                  <input
+                    required
+                    placeholder="Mobile number"
+                    value={authForm.phone}
+                    onChange={(e) => updateAuthForm("phone", e.target.value)}
+                    className="w-full rounded-lg border border-slate-200 px-3.5 py-3 text-sm shadow-sm focus:border-fuchsia-400 focus:outline-none focus:ring-2 focus:ring-fuchsia-100"
+                  />
+                </>
+              ) : null}
+
+                <div className="relative">
+                  <Mail className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-slate-400" />
+                  <input
+                    required
+                    type="email"
+                    placeholder="Email address"
+                    value={authForm.email}
+                    onChange={(e) => updateAuthForm("email", e.target.value)}
+                    disabled={otpRequested}
+                    className="w-full rounded-lg border border-slate-200 px-10 py-3 text-sm shadow-sm focus:border-fuchsia-400 focus:outline-none focus:ring-2 focus:ring-fuchsia-100"
+                  />
+                </div>
+                {otpRequested ? (
+                  <div className="relative">
+                    <KeyRound className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-slate-400" />
+                    <input
+                      required
+                      inputMode="numeric"
+                      maxLength={6}
+                      placeholder="Enter 6 digit OTP"
+                      value={otpCode}
+                      onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                      className="w-full rounded-lg border border-slate-200 px-10 py-3 text-sm font-bold tracking-[0.3em] shadow-sm focus:border-fuchsia-400 focus:outline-none focus:ring-2 focus:ring-fuchsia-100"
+                    />
+                  </div>
+                ) : null}
+                <button type="submit" disabled={authLoading || (otpRequested && otpCode.length !== 6)} className="w-full rounded-lg bg-[#5b0f4d] py-3.5 text-sm font-bold uppercase tracking-wider text-white shadow-sm hover:bg-[#4a0c3f] disabled:opacity-60">
+                  {authLoading ? "Please wait..." : otpRequested ? "Verify & Continue" : authMode === "register" ? "Send OTP & Register" : "Send OTP"}
+                </button>
+                {otpRequested ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOtpRequested(false);
+                      setOtpCode("");
+                      setAuthNotice("");
+                    }}
+                    className="w-full text-xs font-bold text-slate-500 hover:text-slate-700"
+                  >
+                    Change email
+                  </button>
+                ) : null}
+              </form>
+
+            <button type="button" onClick={closeAuthModal} className="mt-4 w-full text-xs font-bold text-slate-500 hover:text-slate-700">
+              Continue as guest
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Legacy fake OTP modal disabled after real auth implementation. */}
+      {false && isLoginModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div 
             className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity duration-300"

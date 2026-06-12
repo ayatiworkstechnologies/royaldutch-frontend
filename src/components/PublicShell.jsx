@@ -66,13 +66,6 @@ export default function PublicShell({ children }) {
         </div>
       </footer>
 
-      {/* Mobile Floating Action Button */}
-      <Link
-        href="/book"
-        className="fixed bottom-4 left-4 z-40 flex h-12 w-[calc(100%-6.5rem)] items-center justify-center rounded-full bg-gradient-to-r from-[#5b0f4d] to-[#38072e] text-xs font-bold uppercase tracking-wider text-white shadow-[0_12px_30px_rgba(91,15,77,0.3)] hover:opacity-95 active:scale-95 sm:hidden transition-all duration-200"
-      >
-        Book Appointment
-      </Link>
       <AiHelpButton />
     </div>
   );
